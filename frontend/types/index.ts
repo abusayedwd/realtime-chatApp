@@ -63,6 +63,7 @@ export interface IConversation {
   groupAdmin?: string
   lastMessage?: Pick<IMessage, '_id' | 'content' | 'type' | 'sender' | 'createdAt' | 'fileName'>
   lastMessageAt: string
+  background?: string
   unreadCount?: number
   createdAt: string
   updatedAt: string

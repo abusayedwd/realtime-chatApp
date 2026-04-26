@@ -10,6 +10,9 @@ import {
   refreshSession,
   logoutUser,
   resendOtp,
+  forgotPassword,
+  resetPassword,
+  changePassword,
 } from '../services/auth.service'
 
 const REFRESH_COOKIE_NAME = 'refreshToken'
@@ -75,4 +78,23 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   if (req.user?.userId) await logoutUser(req.user.userId)
   clearRefreshCookie(res)
   return sendSuccess(res, null, 'Logged out successfully')
+})
+
+export const forgotPasswordCtrl = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body
+  await forgotPassword(email)
+  // Always return success to prevent email enumeration
+  return sendSuccess(res, null, 'If an account exists for that email, a reset link has been sent.')
+})
+
+export const resetPasswordCtrl = asyncHandler(async (req: Request, res: Response) => {
+  const { email, token, password } = req.body
+  await resetPassword(email, token, password)
+  return sendSuccess(res, null, 'Password reset successfully. You can now log in.')
+})
+
+export const changePasswordCtrl = asyncHandler(async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body
+  await changePassword(req.user!.userId, currentPassword, newPassword)
+  return sendSuccess(res, null, 'Password changed successfully.')
 })

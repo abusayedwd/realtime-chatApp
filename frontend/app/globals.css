@@ -10,6 +10,8 @@
 html,
 body {
   height: 100%;
+  /* Prevent elastic bounce scroll on iOS at root level */
+  overscroll-behavior: none;
 }
 
 body {
@@ -18,6 +20,16 @@ body {
 
 * {
   -webkit-tap-highlight-color: transparent;
+  /* Smooth scrolling within overflow containers */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent iOS zoom on input focus (requires font-size >= 16px won't zoom,
+   but we keep font small — disable the auto-zoom instead) */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 /* Custom scrollbar */

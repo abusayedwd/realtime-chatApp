@@ -1,5 +1,6 @@
 import { baseApi } from './baseApi'
 import type { IUser } from '@/types'
+import { axiosInstance } from '@/lib/axiosBaseQuery'
 
 export const userApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -23,3 +24,19 @@ export const userApi = baseApi.injectEndpoints({
 
 export const { useGetMeQuery, useUpdateMeMutation, useSearchUsersQuery, useLazySearchUsersQuery } =
   userApi
+
+/** Upload avatar — returns updated IUser */
+export const uploadAvatar = async (
+  file: File,
+  accessToken: string | null
+): Promise<IUser> => {
+  const form = new FormData()
+  form.append('avatar', file)
+  const res = await axiosInstance.post('/users/me/avatar', form, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  })
+  return res.data.data as IUser
+}

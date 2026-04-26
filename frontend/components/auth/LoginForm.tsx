@@ -59,14 +59,21 @@ export const LoginForm = () => {
         {...register('email')}
         error={errors.email?.message}
       />
-      <Input
-        label="Password"
-        type="password"
-        autoComplete="current-password"
-        placeholder="••••••••"
-        {...register('password')}
-        error={errors.password?.message}
-      />
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-ink">Password</label>
+          <Link href="/forgot-password" className="text-xs text-brand hover:text-brand-light">
+            Forgot password?
+          </Link>
+        </div>
+        <Input
+          type="password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+          {...register('password')}
+          error={errors.password?.message}
+        />
+      </div>
 
       <Button type="submit" fullWidth size="lg" isLoading={isLoading}>
         Sign in

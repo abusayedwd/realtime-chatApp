@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
  *
  * This is a first-line guard — real enforcement happens on the API.
  */
-const PUBLIC_PATHS = ['/login', '/register', '/verify-email']
+const PUBLIC_PATHS = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl

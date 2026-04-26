@@ -13,6 +13,8 @@ export interface IUser extends Document {
   otpAttempts: number
   otpLockedUntil?: Date
   lastOtpSentAt?: Date
+  passwordResetToken?: string
+  passwordResetExpires?: Date
   isOnline: boolean
   lastSeen: Date
   createdAt: Date
@@ -32,6 +34,8 @@ const UserSchema = new Schema<IUser>(
     otpAttempts: { type: Number, default: 0, select: false },
     otpLockedUntil: { type: Date, select: false },
     lastOtpSentAt: { type: Date, select: false },
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
   },
@@ -60,6 +64,8 @@ UserSchema.set('toJSON', {
     delete ret.otpAttempts
     delete ret.otpLockedUntil
     delete ret.lastOtpSentAt
+    delete ret.passwordResetToken
+    delete ret.passwordResetExpires
     delete ret.__v
     return ret
   },

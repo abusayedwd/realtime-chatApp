@@ -1,5 +1,7 @@
+import crypto from 'crypto'
 import { User, IUser } from '../models/User.model'
 import { ApiError } from '../utils/ApiError'
+import { env } from '../config/env'
 import {
   generateOtpCode,
   signAccessToken,
@@ -9,12 +11,13 @@ import {
   isRefreshTokenValid,
   revokeRefreshToken,
 } from './token.service'
-import { sendVerificationEmail } from './email.service'
+import { sendVerificationEmail, sendPasswordResetEmail } from './email.service'
 
 const OTP_TTL_MINUTES = 15
 const OTP_MAX_ATTEMPTS = 5
 const OTP_LOCK_MINUTES = 30
 const RESEND_COOLDOWN_SECONDS = 60
+const RESET_TTL_MINUTES = 15
 
 export interface SafeUser {
   id: string
@@ -169,7 +172,6 @@ export const refreshSession = async (refreshToken: string) => {
   const user = await User.findById(decoded.userId)
   if (!user) throw new ApiError(401, 'User no longer exists')
 
-  // Rotate refresh token
   const newRefresh = signRefreshToken(user._id.toString())
   await storeRefreshToken(user._id.toString(), newRefresh)
 
@@ -179,4 +181,63 @@ export const refreshSession = async (refreshToken: string) => {
 
 export const logoutUser = async (userId: string) => {
   await revokeRefreshToken(userId)
+}
+
+// ── Forgot password ────────────────────────────────────────────────────────────
+export const forgotPassword = async (email: string) => {
+  const user = await User.findOne({ email })
+  // Always respond with success to avoid email enumeration
+  if (!user || !user.isVerified) return
+
+  const rawToken = crypto.randomBytes(32).toString('hex')
+  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex')
+
+  user.passwordResetToken = hashedToken
+  user.passwordResetExpires = new Date(Date.now() + RESET_TTL_MINUTES * 60 * 1000)
+  await user.save()
+
+  const resetUrl = `${env.CLIENT_URL}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`
+  await sendPasswordResetEmail(email, user.name, resetUrl)
+}
+
+// ── Reset password (via email link) ───────────────────────────────────────────
+export const resetPassword = async (email: string, token: string, newPassword: string) => {
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex')
+
+  const user = await User.findOne({ email }).select('+passwordResetToken +passwordResetExpires +password')
+  if (!user) throw new ApiError(400, 'Invalid or expired reset link')
+
+  if (
+    !user.passwordResetToken ||
+    !user.passwordResetExpires ||
+    user.passwordResetToken !== hashedToken ||
+    user.passwordResetExpires < new Date()
+  ) {
+    throw new ApiError(400, 'Invalid or expired reset link. Please request a new one.')
+  }
+
+  user.password = newPassword
+  user.passwordResetToken = undefined
+  user.passwordResetExpires = undefined
+  await user.save()
+}
+
+// ── Change password (logged-in user) ──────────────────────────────────────────
+export const changePassword = async (
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+) => {
+  const user = await User.findById(userId).select('+password')
+  if (!user) throw new ApiError(404, 'User not found')
+
+  const ok = await user.comparePassword(currentPassword)
+  if (!ok) throw new ApiError(400, 'Current password is incorrect')
+
+  if (currentPassword === newPassword) {
+    throw new ApiError(400, 'New password must be different from current password')
+  }
+
+  user.password = newPassword
+  await user.save()
 }

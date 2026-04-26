@@ -92,6 +92,31 @@ export const getConversation = asyncHandler(async (req: Request, res: Response) 
   return sendSuccess(res, convo)
 })
 
+export const updateBackground = asyncHandler(async (req: Request, res: Response) => {
+  const me = new mongoose.Types.ObjectId(req.user!.userId)
+  const { background } = req.body as { background: string }
+
+  const convo = await Conversation.findOne({ _id: req.params.id, participants: me })
+    .populate('participants', 'name email avatar isOnline lastSeen')
+    .populate({ path: 'lastMessage', select: 'content type sender createdAt fileName' })
+
+  if (!convo) throw new ApiError(404, 'Conversation not found')
+
+  convo.background = background ?? ''
+  await convo.save()
+
+  // Notify all participants in real-time
+  const io = getIO()
+  if (io) {
+    io.to(convo._id.toString()).emit('conversation_bg_changed', {
+      conversationId: convo._id.toString(),
+      background: convo.background,
+    })
+  }
+
+  return sendSuccess(res, { ...convo.toObject(), unreadCount: 0 }, 'Background updated')
+})
+
 export const deleteConversation = asyncHandler(async (req: Request, res: Response) => {
   const me = new mongoose.Types.ObjectId(req.user!.userId)
   const convo = await Conversation.findOne({ _id: req.params.id, participants: me })

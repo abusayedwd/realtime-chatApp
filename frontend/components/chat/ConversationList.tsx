@@ -8,6 +8,7 @@ import { ConversationItem } from './ConversationItem'
 import { ConversationSkeleton } from '@/components/ui/Skeleton'
 import { Avatar } from '@/components/ui/Avatar'
 import { NewChatModal } from './NewChatModal'
+import { ProfileModal } from './ProfileModal'
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch'
 import { logoutAction } from '@/store/slices/authSlice'
 import { setUnreadCount } from '@/store/slices/chatSlice'
@@ -22,11 +23,11 @@ export const ConversationList = () => {
   const { data, isLoading } = useListConversationsQuery()
   const [logout] = useLogoutMutation()
   const [showNew, setShowNew] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
   const [q, setQ] = useState('')
   const seededRef = useRef<Set<string>>(new Set())
 
-  // Seed unread counts from server, but only once per conversation so that
-  // locally-cleared counts (via setActiveConversation) aren't overwritten.
+
   useEffect(() => {
     if (!data) return
     data.forEach((c) => {
@@ -52,52 +53,71 @@ export const ConversationList = () => {
   }, [data, q, me?.id])
 
   const onLogout = async () => {
-    try {
-      await logout().unwrap()
-    } catch {
-      // still clear locally
-    }
+    try { await logout().unwrap() } catch { /* clear locally */ }
     cleanupSocket()
     dispatch(logoutAction())
     window.location.assign('/login')
   }
 
   return (
-    <aside className="flex h-full w-full flex-col border-r border-line bg-bg-panel">
-      <header className="flex items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex items-center gap-3">
-          {me && <Avatar src={me.avatar} name={me.name} online={socketConnected} size="sm" />}
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold text-ink">{me?.name ?? 'Me'}</span>
-            <span className="text-[11px] text-ink-dim">
-              {socketConnected ? 'Connected' : 'Connecting...'}
-            </span>
+    <aside className="flex h-full w-full flex-col bg-bg-panel">
+      {/* ── Header ── */}
+      <header className="flex items-center justify-between border-b border-line px-3 py-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {me && (
+            <div className="relative shrink-0">
+              <Avatar src={me.avatar} name={me.name} size="sm" />
+              <span
+                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-bg-panel ${
+                  socketConnected ? 'bg-emerald-400' : 'bg-gray-500'
+                }`}
+              />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink leading-tight">
+              {me?.name ?? 'Me'}
+            </p>
+            <p className="text-[11px] text-ink-dim">
+              {socketConnected ? 'Online' : 'Connecting...'}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
+          {/* Profile / Settings */}
           <button
-            onClick={() => setShowNew(true)}
-            className="rounded-lg p-2 text-ink-muted transition hover:bg-bg-hover hover:text-ink"
-            aria-label="New chat"
-            title="Start a new conversation"
+            onClick={() => setShowProfile(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-bg-hover hover:text-ink"
+            aria-label="Profile & settings"
+            title="Profile & settings"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M20 12h-8m0 0H4m8 0V4m0 8v8"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </button>
+
+          {/* New chat */}
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-bg-hover hover:text-brand"
+            aria-label="New conversation"
+            title="New conversation"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          {/* Logout */}
           <button
             onClick={onLogout}
-            className="rounded-lg p-2 text-ink-muted transition hover:bg-bg-hover hover:text-ink"
-            aria-label="Logout"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-bg-hover hover:text-ink"
+            aria-label="Sign out"
             title="Sign out"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
               <path
                 d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l-5-5 5-5M5 12h12"
                 stroke="currentColor"
@@ -110,40 +130,74 @@ export const ConversationList = () => {
         </div>
       </header>
 
-      <div className="border-b border-line px-3 py-2">
-        <div className="flex h-9 items-center gap-2 rounded-lg border border-line bg-bg-input px-3">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-ink-muted">
+      {/* ── Search bar ── */}
+      <div className="px-3 py-2">
+        <div className="flex h-9 items-center gap-2 rounded-xl border border-line bg-bg-input px-3 transition focus-within:border-brand/50 focus-within:ring-1 focus-within:ring-brand/20">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0 text-ink-muted">
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
             <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search conversations"
+            placeholder="Search conversations…"
             className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-dim outline-none"
           />
+          {q && (
+            <button onClick={() => setQ('')} className="shrink-0 text-ink-dim hover:text-ink">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
+      {/* ── List ── */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <ConversationSkeleton />
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-            <p className="text-sm text-ink-muted">
-              {q ? 'No conversations match your search' : 'No conversations yet'}
-            </p>
-            {!q && (
-              <button
-                onClick={() => setShowNew(true)}
-                className="text-sm font-medium text-brand hover:text-brand-light"
-              >
-                Start a conversation
-              </button>
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+            {q ? (
+              <>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-ink-dim">
+                  <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <p className="text-sm text-ink-muted">No results for <span className="font-medium text-ink">"{q}"</span></p>
+                <button onClick={() => setQ('')} className="text-xs text-brand hover:text-brand-light">
+                  Clear search
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-bg-hover text-ink-dim">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-ink">No conversations yet</p>
+                  <p className="mt-1 text-xs text-ink-dim">Press + to start chatting</p>
+                </div>
+                <button
+                  onClick={() => setShowNew(true)}
+                  className="mt-1 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition hover:bg-brand-dark"
+                >
+                  New conversation
+                </button>
+              </>
             )}
           </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="flex flex-col py-1">
             {filtered.map((c) => (
               <ConversationItem key={c._id} conversation={c} active={c._id === activeId} />
             ))}
@@ -152,6 +206,7 @@ export const ConversationList = () => {
       </div>
 
       <NewChatModal open={showNew} onClose={() => setShowNew(false)} />
+      <ProfileModal open={showProfile} onClose={() => setShowProfile(false)} />
     </aside>
   )
 }

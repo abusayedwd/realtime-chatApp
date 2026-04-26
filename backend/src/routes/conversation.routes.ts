@@ -5,6 +5,7 @@ import {
   listConversations,
   createOrGetDM,
   getConversation,
+  updateBackground,
   deleteConversation,
 } from '../controllers/conversation.controller'
 import { createConversationSchema } from '../validations/message.schema'
@@ -15,6 +16,7 @@ router.use(authenticate)
 router.get('/', listConversations)
 router.post('/', validate(createConversationSchema), createOrGetDM)
 router.get('/:id', getConversation)
+router.patch('/:id/background', updateBackground)
 router.delete('/:id', deleteConversation)
 
 export default router

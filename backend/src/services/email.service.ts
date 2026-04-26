@@ -46,3 +46,33 @@ export const sendVerificationEmail = async (email: string, name: string, code: s
     throw err
   }
 }
+
+export const sendPasswordResetEmail = async (email: string, name: string, resetUrl: string) => {
+  const html = baseHtml(
+    'Reset Your Password',
+    `
+    <p style="color:#9ca3af; font-size:15px;">Hi <strong style="color:#fff;">${name}</strong>, we received a request to reset your password.</p>
+    <div style="margin:28px auto;">
+      <a href="${resetUrl}"
+         style="display:inline-block; padding:14px 32px; background:#e94560; color:#fff; font-weight:700; font-size:15px; border-radius:10px; text-decoration:none; letter-spacing:0.5px;">
+        Reset Password
+      </a>
+    </div>
+    <p style="color:#9ca3af; font-size:13px;">This link expires in <strong style="color:#fff;">15 minutes</strong>.</p>
+    <p style="color:#6b7280; font-size:12px; margin-top:16px;">Or copy this link:<br/><span style="color:#9ca3af;">${resetUrl}</span></p>
+    `
+  )
+
+  try {
+    await transporter.sendMail({
+      from: env.EMAIL_FROM,
+      to: email,
+      subject: 'Reset your ChatApp password',
+      html,
+    })
+    logger.info(`Password reset email sent → ${email}`)
+  } catch (err) {
+    logger.error('Failed to send password reset email:', (err as Error).message)
+    throw err
+  }
+}

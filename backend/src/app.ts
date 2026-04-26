@@ -16,7 +16,13 @@ const app = express()
 
 app.set('trust proxy', 1)
 
-app.use(helmet())
+app.use(
+  helmet({
+    // Allow images/assets to be loaded by any origin (needed for LAN/cross-port dev)
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false,
+  })
+)
 app.use(
   cors({
     origin: (origin, callback) => {

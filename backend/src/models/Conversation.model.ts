@@ -9,6 +9,7 @@ export interface IConversation extends Document {
   groupAdmin?: mongoose.Types.ObjectId
   lastMessage?: mongoose.Types.ObjectId
   lastMessageAt: Date
+  background?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -22,6 +23,7 @@ const ConversationSchema = new Schema<IConversation>(
     groupAdmin: { type: Schema.Types.ObjectId, ref: 'User' },
     lastMessage: { type: Schema.Types.ObjectId, ref: 'Message' },
     lastMessageAt: { type: Date, default: Date.now },
+    background: { type: String, default: '' },
   },
   { timestamps: true }
 )

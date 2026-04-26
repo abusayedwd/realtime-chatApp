@@ -5,7 +5,7 @@ import { cn, initials } from '@/lib/utils'
 interface AvatarProps {
   src?: string | null
   name: string
-  size?: 'xs' | 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   online?: boolean
   className?: string
 }
@@ -15,6 +15,7 @@ const sizes = {
   sm: 'h-9 w-9 text-sm',
   md: 'h-11 w-11 text-sm',
   lg: 'h-14 w-14 text-base',
+  xl: 'h-20 w-20 text-xl',
 }
 
 const dotSizes = {
@@ -22,6 +23,7 @@ const dotSizes = {
   sm: 'h-2.5 w-2.5',
   md: 'h-3 w-3',
   lg: 'h-3.5 w-3.5',
+  xl: 'h-4 w-4',
 }
 
 const colorFromName = (name: string) => {
