@@ -45,17 +45,19 @@ export const ConversationItem = ({ conversation, active }: ConversationItemProps
     <button
       onClick={() => router.push(`/${conversation._id}`)}
       className={cn(
-        'group flex w-full items-center gap-3 px-3 py-2.5 text-left transition',
-        active ? 'bg-bg-hover' : 'hover:bg-bg-hover'
+        'group flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left transition-all duration-200',
+        active
+          ? 'border-white/15 bg-white/[0.08] shadow-[0_10px_24px_rgba(0,0,0,0.2)]'
+          : 'hover:border-white/10 hover:bg-white/[0.05]'
       )}
     >
       <Avatar src={avatar} name={name} online={online} size="md" />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-baseline justify-between gap-2">
-          <span className={cn('truncate text-sm font-semibold text-ink', unread && 'text-ink')}>
+          <span className={cn('truncate text-sm font-semibold text-ink', unread && 'text-white')}>
             {name}
           </span>
-          <span className="shrink-0 text-[11px] text-ink-dim">
+          <span className={cn('shrink-0 text-[11px]', unread ? 'text-ink-muted' : 'text-ink-dim')}>
             {formatRelative(conversation.lastMessageAt)}
           </span>
         </div>

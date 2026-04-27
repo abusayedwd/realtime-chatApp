@@ -35,13 +35,15 @@ export const useSocket = () => {
     const socket = getSocket(accessToken)
     socketRef.current = socket
 
-    if (!socket.connected) socket.connect()
-
-    const onConnect = () => {
-      dispatch(setSocketConnected(true))
+    const syncOnlineUsers = () => {
       socket.emit('get_online_users', null, (res: { userIds: string[] }) => {
         if (res?.userIds) dispatch(setOnlineUsers(res.userIds))
       })
+    }
+
+    const onConnect = () => {
+      dispatch(setSocketConnected(true))
+      syncOnlineUsers()
     }
     const onDisconnect = () => dispatch(setSocketConnected(false))
 
@@ -151,6 +153,14 @@ export const useSocket = () => {
     socket.on('user_online', onUserOnline)
     socket.on('user_offline', onUserOffline)
     socket.on('message_deleted', onMessageDeleted)
+
+    // Important: if socket is already connected, `connect` won't fire again.
+    // Run the same logic once so online users are synced on first app render.
+    if (socket.connected) {
+      onConnect()
+    } else {
+      socket.connect()
+    }
 
     return () => {
       socket.off('connect', onConnect)

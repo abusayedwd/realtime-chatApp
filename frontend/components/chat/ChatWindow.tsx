@@ -149,13 +149,15 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
   const avatar = conversation?.isGroup ? conversation?.groupAvatar : other?.avatar
 
   return (
-    <section className="flex h-full flex-1 flex-col overflow-hidden bg-bg">
+    <section className="relative flex h-full flex-1 flex-col overflow-hidden bg-bg/70">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/[0.04] to-transparent" />
       {/* ── Header ── */}
-      <header className="relative flex shrink-0 items-center gap-2 border-b border-line bg-bg-panel/95 backdrop-blur-sm px-2 py-2 sm:px-4 sm:py-3">
+      <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-white/10 bg-bg-panel/75 backdrop-blur-xl px-2 py-2 sm:px-4 sm:py-3">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
         {/* Back — mobile only */}
         <button
           onClick={() => router.push('/')}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition hover:bg-bg-hover hover:text-ink active:scale-95 md:hidden"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition hover:bg-white/10 hover:text-ink active:scale-95 md:hidden"
           aria-label="Back"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -175,8 +177,8 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
           onClick={() => setShowBgPicker((v) => !v)}
           title="Change wallpaper"
           className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition active:scale-95',
-            showBgPicker ? 'bg-bg-hover text-brand' : 'text-ink-muted hover:bg-bg-hover hover:text-ink'
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] transition active:scale-95',
+            showBgPicker ? 'bg-white/10 text-brand-light' : 'text-ink-muted hover:bg-white/10 hover:text-ink'
           )}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none">

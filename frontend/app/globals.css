@@ -16,6 +16,11 @@ body {
 
 body {
   @apply bg-bg text-ink antialiased;
+  background-image:
+    radial-gradient(1200px 500px at -10% -20%, rgba(233, 69, 96, 0.16), transparent 55%),
+    radial-gradient(900px 420px at 110% 0%, rgba(91, 127, 255, 0.12), transparent 52%),
+    linear-gradient(180deg, #0f0f1a 0%, #0c1020 100%);
+  background-attachment: fixed;
 }
 
 * {
@@ -46,6 +51,11 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: theme('colors.bg.elevated');
+}
+
+::selection {
+  background: rgba(233, 69, 96, 0.28);
+  color: #fff;
 }
 
 /* Typing bounce animation */

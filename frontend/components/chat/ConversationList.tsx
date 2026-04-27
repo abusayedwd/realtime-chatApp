@@ -60,15 +60,16 @@ export const ConversationList = () => {
   }
 
   return (
-    <aside className="flex h-full w-full flex-col bg-bg-panel">
+    <aside className="flex h-full w-full flex-col bg-bg-panel/90 backdrop-blur-xl">
       {/* ── Header ── */}
-      <header className="flex items-center justify-between border-b border-line px-3 py-2.5">
+      <header className="relative flex items-center justify-between border-b border-white/10 px-3 py-3">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
         <div className="flex items-center gap-2.5 min-w-0">
           {me && (
             <div className="relative shrink-0">
               <Avatar src={me.avatar} name={me.name} size="sm" />
               <span
-                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-bg-panel ${
+                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-bg-panel shadow-[0_0_0_2px_rgba(10,10,24,0.65)] ${
                   socketConnected ? 'bg-emerald-400' : 'bg-gray-500'
                 }`}
               />
@@ -84,11 +85,11 @@ export const ConversationList = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
           {/* Profile / Settings */}
           <button
             onClick={() => setShowProfile(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-bg-hover hover:text-ink"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-white/10 hover:text-ink"
             aria-label="Profile & settings"
             title="Profile & settings"
           >
@@ -101,7 +102,7 @@ export const ConversationList = () => {
           {/* New chat */}
           <button
             onClick={() => setShowNew(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-bg-hover hover:text-brand"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-white/10 hover:text-brand-light"
             aria-label="New conversation"
             title="New conversation"
           >
@@ -113,7 +114,7 @@ export const ConversationList = () => {
           {/* Logout */}
           <button
             onClick={onLogout}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-bg-hover hover:text-ink"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-white/10 hover:text-rose-300"
             aria-label="Sign out"
             title="Sign out"
           >
@@ -131,8 +132,8 @@ export const ConversationList = () => {
       </header>
 
       {/* ── Search bar ── */}
-      <div className="px-3 py-2">
-        <div className="flex h-9 items-center gap-2 rounded-xl border border-line bg-bg-input px-3 transition focus-within:border-brand/50 focus-within:ring-1 focus-within:ring-brand/20">
+      <div className="px-3 py-2.5">
+        <div className="flex h-10 items-center gap-2 rounded-2xl border border-white/10 bg-bg-input/85 px-3 shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/20">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0 text-ink-muted">
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
             <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -154,7 +155,7 @@ export const ConversationList = () => {
       </div>
 
       {/* ── List ── */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-1 pb-2">
         {isLoading ? (
           <ConversationSkeleton />
         ) : filtered.length === 0 ? (
@@ -197,7 +198,7 @@ export const ConversationList = () => {
             )}
           </div>
         ) : (
-          <div className="flex flex-col py-1">
+          <div className="flex flex-col gap-1 py-1">
             {filtered.map((c) => (
               <ConversationItem key={c._id} conversation={c} active={c._id === activeId} />
             ))}

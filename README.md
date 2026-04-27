@@ -42,7 +42,7 @@ npm install
 npm run dev
 ```
 
-Server runs on `http://localhost:5000` (health check at `/api/health`).
+Server runs on `http://localhost:5006` (health check at `/api/health`).
 
 ### 3. Frontend
 

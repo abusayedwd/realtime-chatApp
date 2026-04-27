@@ -25,7 +25,7 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional().default(''),
 
   CLIENT_URL: z.string().url().default('http://localhost:3000'),
-  SERVER_URL: z.string().url().default('http://localhost:5000'),
+  SERVER_URL: z.string().url().default('http://localhost:5006'),
 })
 
 const parsed = envSchema.safeParse(process.env)

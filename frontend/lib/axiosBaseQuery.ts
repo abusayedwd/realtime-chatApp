@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import type { BaseQueryFn } from '@reduxjs/toolkit/query'
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api'
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5006/api'
 
 export const axiosInstance = axios.create({
   baseURL: API_URL,
