@@ -14,11 +14,37 @@ interface SendMessageBody {
   fileSize?: number
   mimeType?: string
   thumbnailUrl?: string
+  replyTo?: string
   clientTempId?: string
 }
 
 export const registerMessageHandlers = (io: Server, socket: ChatSocket) => {
   const { userId } = socket.data
+  const populateMessage = (message: typeof Message.prototype) =>
+    message.populate([
+      { path: 'sender', select: 'name email avatar' },
+      {
+        path: 'replyTo',
+        select: 'type content fileName isDeleted sender',
+        populate: { path: 'sender', select: 'name email avatar' },
+      },
+    ])
+
+  const getUnreadCount = async (conversationId: string, targetUserId: string) => {
+    const uid = new mongoose.Types.ObjectId(targetUserId)
+    return Message.countDocuments({
+      conversationId,
+      sender: { $ne: uid },
+      isDeleted: false,
+      deletedFor: { $nin: [uid] },
+      'readBy.user': { $nin: [uid] },
+    })
+  }
+
+  const emitUnreadForUser = async (conversationId: string, targetUserId: string) => {
+    const count = await getUnreadCount(conversationId, targetUserId)
+    io.to(`user:${targetUserId}`).emit('unread_count_updated', { conversationId, count })
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   socket.on('join_conversation', async ({ conversationId }: { conversationId: string }, ack: any) => {
@@ -26,7 +52,7 @@ export const registerMessageHandlers = (io: Server, socket: ChatSocket) => {
       const convo = await Conversation.findOne({
         _id: conversationId,
         participants: new mongoose.Types.ObjectId(userId),
-      }).select('_id')
+      }).select('_id participants')
       if (!convo) throw new Error('Not a participant')
       socket.join(conversationId)
       ack?.({ ok: true })
@@ -51,6 +77,7 @@ export const registerMessageHandlers = (io: Server, socket: ChatSocket) => {
         fileSize,
         mimeType,
         thumbnailUrl,
+        replyTo,
         clientTempId,
       } = body
 
@@ -60,12 +87,18 @@ export const registerMessageHandlers = (io: Server, socket: ChatSocket) => {
       const convo = await Conversation.findOne({
         _id: conversationId,
         participants: new mongoose.Types.ObjectId(userId),
-      }).select('_id')
+      }).select('_id participants')
       if (!convo) throw new Error('Not a participant')
+
+      if (replyTo) {
+        const base = await Message.findOne({ _id: replyTo, conversationId }).select('_id')
+        if (!base) throw new Error('Invalid reply target')
+      }
 
       const message = await Message.create({
         conversationId,
         sender: userId,
+        replyTo,
         type,
         content,
         fileUrl,
@@ -81,10 +114,27 @@ export const registerMessageHandlers = (io: Server, socket: ChatSocket) => {
         lastMessageAt: new Date(),
       })
 
-      const populated = await message.populate('sender', 'name email avatar')
+      const populated = await populateMessage(message)
       const json = populated.toJSON()
 
       io.to(conversationId).emit('new_message', { message: json, clientTempId })
+      ;(convo.participants ?? []).forEach((pid) => {
+        io.to(`user:${pid.toString()}`).emit('conversation_updated', {
+          conversationId,
+          lastMessage: {
+            _id: json._id,
+            content: json.content,
+            type: json.type,
+            sender: json.sender,
+            createdAt: json.createdAt,
+            fileName: json.fileName,
+          },
+          lastMessageAt: json.createdAt,
+        })
+      })
+      await Promise.all(
+        (convo.participants ?? []).map((pid) => emitUnreadForUser(conversationId, pid.toString()))
+      )
       ack?.({ ok: true, message: json, clientTempId })
     } catch (err) {
       logger.error('send_message error:', (err as Error).message)
@@ -114,8 +164,51 @@ export const registerMessageHandlers = (io: Server, socket: ChatSocket) => {
         )
 
         io.to(conversationId).emit('messages_read', { conversationId, messageIds, readBy: userId })
+        await emitUnreadForUser(conversationId, userId)
         ack?.({ ok: true })
       } catch (err) {
+        ack?.({ ok: false, error: (err as Error).message })
+      }
+    }
+  )
+
+  socket.on(
+    'react_message',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ messageId, emoji }: { messageId: string; emoji: string }, ack: any) => {
+      try {
+        if (!emoji?.trim()) throw new Error('Emoji is required')
+
+        const message = await Message.findById(messageId)
+        if (!message) throw new Error('Message not found')
+
+        const convo = await Conversation.findOne({
+          _id: message.conversationId,
+          participants: new mongoose.Types.ObjectId(userId),
+        }).select('_id')
+        if (!convo) throw new Error('Not a participant')
+        if (message.isDeleted) throw new Error('Cannot react to deleted message')
+
+        const uid = new mongoose.Types.ObjectId(userId)
+        const idx = message.reactions.findIndex((r) => r.user.equals(uid))
+        if (idx === -1) {
+          message.reactions.push({ user: uid, emoji: emoji.trim(), createdAt: new Date() })
+        } else if (message.reactions[idx].emoji === emoji.trim()) {
+          message.reactions.splice(idx, 1)
+        } else {
+          message.reactions[idx].emoji = emoji.trim()
+          message.reactions[idx].createdAt = new Date()
+        }
+
+        await message.save()
+        const populated = await populateMessage(message)
+        const json = populated.toJSON()
+        const conversationId = String(message.conversationId)
+
+        io.to(conversationId).emit('message_updated', { conversationId, message: json })
+        ack?.({ ok: true, message: json })
+      } catch (err) {
+        logger.error('react_message error:', (err as Error).message)
         ack?.({ ok: false, error: (err as Error).message })
       }
     }

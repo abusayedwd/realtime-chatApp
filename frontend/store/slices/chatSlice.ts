@@ -50,11 +50,15 @@ const chatSlice = createSlice({
     },
     setOnlineUsers: (state, action: PayloadAction<string[]>) => {
       state.onlineUsers = Array.from(new Set(action.payload))
+      state.onlineUsers.forEach((userId) => {
+        delete state.lastSeen[userId]
+      })
     },
     userOnline: (state, action: PayloadAction<{ userId: string }>) => {
       if (!state.onlineUsers.includes(action.payload.userId)) {
         state.onlineUsers.push(action.payload.userId)
       }
+      delete state.lastSeen[action.payload.userId]
     },
     userOffline: (
       state,

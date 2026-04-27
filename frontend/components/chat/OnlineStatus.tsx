@@ -6,12 +6,16 @@ import { formatRelative } from '@/lib/utils'
 export const OnlineStatus = ({
   userId,
   fallbackLastSeen,
+  fallbackIsOnline,
 }: {
   userId: string
   fallbackLastSeen?: string
+  fallbackIsOnline?: boolean
 }) => {
-  const isOnline = useAppSelector((s) => s.chat.onlineUsers.includes(userId))
+  const isLiveOnline = useAppSelector((s) => s.chat.onlineUsers.includes(userId))
   const liveLastSeen = useAppSelector((s) => s.chat.lastSeen[userId])
+  const hasLivePresenceSignal = isLiveOnline || Boolean(liveLastSeen)
+  const isOnline = isLiveOnline || (!hasLivePresenceSignal && Boolean(fallbackIsOnline))
   const lastSeen = liveLastSeen ?? fallbackLastSeen
 
   if (isOnline) {

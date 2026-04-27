@@ -12,6 +12,7 @@ export const sendMessageSchema = z.object({
     fileSize: z.number().int().nonnegative().optional(),
     mimeType: z.string().optional(),
     thumbnailUrl: z.string().url().optional(),
+    replyTo: objectId.optional(),
   }),
 })
 
@@ -27,6 +28,13 @@ export const getMessagesSchema = z.object({
 export const markReadSchema = z.object({
   params: z.object({ conversationId: objectId }),
   body: z.object({ messageIds: z.array(objectId).min(1) }),
+})
+
+export const reactMessageSchema = z.object({
+  params: z.object({ messageId: objectId }),
+  body: z.object({
+    emoji: z.string().trim().min(1).max(16),
+  }),
 })
 
 export const createConversationSchema = z.object({

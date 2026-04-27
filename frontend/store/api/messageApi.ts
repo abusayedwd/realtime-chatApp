@@ -23,6 +23,7 @@ interface SendMessageArgs {
   fileSize?: number
   mimeType?: string
   thumbnailUrl?: string
+  replyTo?: string
 }
 
 export const messageApi = baseApi.injectEndpoints({
@@ -73,8 +74,24 @@ export const messageApi = baseApi.injectEndpoints({
       }),
     }),
 
-    deleteMessage: build.mutation<{ messageId: string }, { messageId: string; conversationId: string }>({
-      query: ({ messageId }) => ({ url: `/messages/${messageId}`, method: 'DELETE' }),
+    deleteMessage: build.mutation<
+      { messageId: string },
+      { messageId: string; conversationId: string; scope?: 'me' | 'everyone' }
+    >({
+      query: ({ messageId, scope }) => ({
+        url: `/messages/${messageId}`,
+        method: 'DELETE',
+        params: scope ? { scope } : undefined,
+      }),
+      invalidatesTags: (_r, _e, { conversationId }) => [{ type: 'Message', id: conversationId }],
+    }),
+
+    reactMessage: build.mutation<IMessage, { messageId: string; conversationId: string; emoji: string }>({
+      query: ({ messageId, emoji }) => ({
+        url: `/messages/${messageId}/react`,
+        method: 'PATCH',
+        data: { emoji },
+      }),
       invalidatesTags: (_r, _e, { conversationId }) => [{ type: 'Message', id: conversationId }],
     }),
   }),
@@ -86,6 +103,7 @@ export const {
   useSendMessageMutation,
   useMarkAsReadMutation,
   useDeleteMessageMutation,
+  useReactMessageMutation,
 } = messageApi
 
 /**
@@ -97,10 +115,12 @@ export const uploadFile = async (
   conversationId: string,
   file: File,
   accessToken: string | null,
+  opts?: { replyTo?: string },
   onProgress?: (pct: number) => void
 ): Promise<IMessage> => {
   const form = new FormData()
   form.append('file', file)
+  if (opts?.replyTo) form.append('replyTo', opts.replyTo)
   const res = await axiosInstance.post(`/messages/${conversationId}/upload`, form, {
     headers: {
       'Content-Type': 'multipart/form-data',

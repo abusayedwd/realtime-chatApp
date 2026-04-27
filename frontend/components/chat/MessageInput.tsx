@@ -15,21 +15,43 @@ import type { IMessage } from '@/types'
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024
+const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY
+const TENOR_API_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? 'LIVDSRZULELA'
+const TENOR_CLIENT_KEY = 'chatapp-web'
+
+interface GifItem {
+  id: string
+  url: string
+  previewUrl: string
+  title: string
+}
 
 interface MessageInputProps {
   conversationId: string
   socket: Socket | null
+  replyTo?: IMessage | null
+  onCancelReply?: () => void
 }
 
-export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
+export const MessageInput = ({
+  conversationId,
+  socket,
+  replyTo,
+  onCancelReply,
+}: MessageInputProps) => {
   const dispatch = useAppDispatch()
   const currentUser = useAppSelector((s) => s.auth.user)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const [text, setText] = useState('')
   const [uploading, setUploading] = useState<number | null>(null)
   const [showEmoji, setShowEmoji] = useState(false)
+  const [showGif, setShowGif] = useState(false)
+  const [gifQuery, setGifQuery] = useState('')
+  const [gifItems, setGifItems] = useState<GifItem[]>([])
+  const [gifLoading, setGifLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const emojiRef = useRef<HTMLDivElement>(null)
+  const gifRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { onType, stopTyping } = useTyping(socket, conversationId)
 
@@ -52,6 +74,109 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [showEmoji])
+
+  useEffect(() => {
+    if (!showGif) return
+    const handler = (e: MouseEvent) => {
+      if (gifRef.current && !gifRef.current.contains(e.target as Node)) {
+        setShowGif(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showGif])
+
+  useEffect(() => {
+    if (!showGif) return
+
+    const controller = new AbortController()
+    const q = gifQuery.trim()
+
+    const loadFromGiphy = async (): Promise<GifItem[]> => {
+      if (!GIPHY_API_KEY) return []
+      const endpoint = q
+        ? `https://api.giphy.com/v1/gifs/search?api_key=${encodeURIComponent(GIPHY_API_KEY)}&q=${encodeURIComponent(q)}&limit=24&rating=pg&lang=en`
+        : `https://api.giphy.com/v1/gifs/trending?api_key=${encodeURIComponent(GIPHY_API_KEY)}&limit=24&rating=pg`
+      const res = await fetch(endpoint, { signal: controller.signal })
+      if (!res.ok) throw new Error('GIPHY fetch failed')
+      const json = (await res.json()) as {
+        data?: Array<{
+          id?: string
+          title?: string
+          images?: {
+            original?: { url?: string }
+            fixed_width_small?: { url?: string }
+          }
+        }>
+      }
+      return (json.data ?? [])
+        .map((it) => {
+          const url = it.images?.original?.url
+          const previewUrl = it.images?.fixed_width_small?.url ?? url
+          if (!url || !previewUrl) return null
+          return {
+            id: it.id ?? `${Math.random()}`,
+            url,
+            previewUrl,
+            title: it.title ?? 'GIF',
+          }
+        })
+        .filter((x): x is GifItem => Boolean(x))
+    }
+
+    const loadFromTenor = async (): Promise<GifItem[]> => {
+      const endpoint = q
+        ? `https://g.tenor.com/v1/search?key=${encodeURIComponent(TENOR_API_KEY)}&client_key=${encodeURIComponent(TENOR_CLIENT_KEY)}&q=${encodeURIComponent(q)}&limit=24&contentfilter=medium`
+        : `https://g.tenor.com/v1/trending?key=${encodeURIComponent(TENOR_API_KEY)}&client_key=${encodeURIComponent(TENOR_CLIENT_KEY)}&limit=24&contentfilter=medium`
+      const res = await fetch(endpoint, { signal: controller.signal })
+      if (!res.ok) throw new Error('Tenor fetch failed')
+      const json = (await res.json()) as {
+        results?: Array<{
+          id?: string
+          title?: string
+          content_description?: string
+          media?: Array<{
+            gif?: { url?: string }
+            tinygif?: { url?: string }
+          }>
+        }>
+      }
+      return (json.results ?? [])
+        .map((it) => {
+          const media = it.media?.[0]
+          const url = media?.gif?.url
+          const previewUrl = media?.tinygif?.url ?? url
+          if (!url || !previewUrl) return null
+          return {
+            id: it.id ?? `${Math.random()}`,
+            url,
+            previewUrl,
+            title: it.content_description || it.title || 'GIF',
+          }
+        })
+        .filter((x): x is GifItem => Boolean(x))
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setGifLoading(true)
+        const giphyItems = await loadFromGiphy().catch(() => [])
+        const items = giphyItems.length > 0 ? giphyItems : await loadFromTenor()
+        setGifItems(items)
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          dispatch(pushToast(toast.error('Could not load GIF list')))
+        }
+      } finally {
+        setGifLoading(false)
+      }
+    }, 250)
+
+    return () => {
+      controller.abort()
+      clearTimeout(t)
+    }
+  }, [showGif, gifQuery, dispatch])
 
   const onEmojiClick = (data: EmojiClickData) => {
     setText((prev) => prev + data.emoji)
@@ -89,8 +214,19 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
         email: currentUser.email,
         avatar: currentUser.avatar,
       },
+      replyTo: replyTo
+        ? {
+            _id: replyTo._id,
+            sender: replyTo.sender,
+            type: replyTo.type,
+            content: replyTo.content,
+            fileName: replyTo.fileName,
+            isDeleted: replyTo.isDeleted,
+          }
+        : undefined,
       type: 'text',
       content,
+      reactions: [],
       readBy: [{ user: currentUser.id, readAt: new Date().toISOString() }],
       deletedFor: [],
       isDeleted: false,
@@ -109,7 +245,7 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
 
     socket.emit(
       'send_message',
-      { conversationId, type: 'text', content, clientTempId },
+      { conversationId, type: 'text', content, clientTempId, replyTo: replyTo?._id },
       (res: { ok: boolean; message?: IMessage; error?: string; clientTempId?: string }) => {
         if (!res.ok) {
           dispatch(
@@ -123,6 +259,7 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
         }
       }
     )
+    onCancelReply?.()
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -146,7 +283,14 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
     }
     try {
       setUploading(0)
-      await uploadFile(conversationId, file, accessToken, (pct) => setUploading(pct))
+      await uploadFile(
+        conversationId,
+        file,
+        accessToken,
+        { replyTo: replyTo?._id },
+        (pct) => setUploading(pct)
+      )
+      onCancelReply?.()
     } catch (err) {
       const msg = (err as { message?: string }).message ?? 'Upload failed'
       dispatch(pushToast(toast.error(msg)))
@@ -155,10 +299,118 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
     }
   }
 
+  const sendGif = async (url: string, title = 'GIF') => {
+    const cleanUrl = url.trim()
+    if (!url || !currentUser || !socket) return
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      dispatch(pushToast(toast.error('Invalid GIF URL')))
+      return
+    }
+
+    const clientTempId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2, 9)
+
+    const optimistic: IMessage = {
+      _id: clientTempId,
+      conversationId,
+      sender: {
+        _id: currentUser.id,
+        name: currentUser.name,
+        email: currentUser.email,
+        avatar: currentUser.avatar,
+      },
+      replyTo: replyTo
+        ? {
+            _id: replyTo._id,
+            sender: replyTo.sender,
+            type: replyTo.type,
+            content: replyTo.content,
+            fileName: replyTo.fileName,
+            isDeleted: replyTo.isDeleted,
+          }
+        : undefined,
+      type: 'image',
+      fileUrl: cleanUrl,
+      fileName: title,
+      mimeType: 'image/gif',
+      reactions: [],
+      readBy: [{ user: currentUser.id, readAt: new Date().toISOString() }],
+      deletedFor: [],
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      clientTempId,
+      status: 'sending',
+    }
+
+    dispatch(
+      messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
+        if (!draft) return
+        draft.items = uniqueById([...draft.items, optimistic])
+      })
+    )
+
+    socket.emit(
+      'send_message',
+      {
+        conversationId,
+        type: 'image',
+        fileUrl: cleanUrl,
+        fileName: title,
+        mimeType: 'image/gif',
+        clientTempId,
+        replyTo: replyTo?._id,
+      },
+      (res: { ok: boolean; error?: string }) => {
+        if (!res.ok) {
+          dispatch(
+            messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
+              if (!draft) return
+              const m = draft.items.find((x) => x.clientTempId === clientTempId)
+              if (m) m.status = 'failed'
+            })
+          )
+          dispatch(pushToast(toast.error(res.error ?? 'Failed to send GIF')))
+        }
+      }
+    )
+
+    setGifQuery('')
+    setShowGif(false)
+    onCancelReply?.()
+  }
+
   const canSend = text.trim().length > 0
 
   return (
     <div className="relative shrink-0 border-t border-line bg-bg-panel">
+      {replyTo && (
+        <div className="flex items-start justify-between gap-3 border-b border-line/70 bg-bg-hover/60 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-brand-light">Replying message</p>
+            <p className="truncate text-xs text-ink-muted">
+              {replyTo.isDeleted
+                ? 'Deleted message'
+                : replyTo.type === 'text'
+                  ? replyTo.content || 'Text'
+                  : replyTo.fileName || `${replyTo.type} attachment`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancelReply}
+            className="shrink-0 rounded-md p-1 text-ink-dim transition hover:bg-white/10 hover:text-ink"
+            aria-label="Cancel reply"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Emoji picker popover */}
       {showEmoji && (
         <div ref={emojiRef} className="absolute bottom-full left-0 right-0 z-50 sm:left-3 sm:right-auto">
@@ -170,6 +422,40 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
             height={340}
             width={typeof window !== 'undefined' && window.innerWidth < 480 ? window.innerWidth : 320}
           />
+        </div>
+      )}
+
+      {showGif && (
+        <div
+          ref={gifRef}
+          className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-2xl border border-white/10 bg-bg-panel p-3 shadow-2xl sm:left-3 sm:right-auto sm:w-[380px]"
+        >
+          <p className="mb-2 text-xs font-medium text-ink">Search GIF</p>
+          <input
+            value={gifQuery}
+            onChange={(e) => setGifQuery(e.target.value)}
+            placeholder="Search GIFs..."
+            className="w-full rounded-xl border border-white/10 bg-bg-input px-3 py-2 text-xs text-ink placeholder:text-ink-dim outline-none focus:border-brand/50"
+          />
+          <div className="mt-2 grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1">
+            {gifLoading ? (
+              <div className="col-span-2 py-6 text-center text-xs text-ink-dim">Loading GIFs...</div>
+            ) : gifItems.length === 0 ? (
+              <div className="col-span-2 py-6 text-center text-xs text-ink-dim">No GIF found</div>
+            ) : (
+              gifItems.map((gif) => (
+                <button
+                  key={gif.id}
+                  type="button"
+                  onClick={() => sendGif(gif.url, gif.title)}
+                  className="overflow-hidden rounded-lg border border-white/10 transition hover:border-brand/40"
+                  title={gif.title}
+                >
+                  <img src={gif.previewUrl} alt={gif.title} className="h-24 w-full object-cover" />
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
 
@@ -227,6 +513,21 @@ export const MessageInput = ({ conversationId, socket }: MessageInputProps) => {
             <circle cx="9" cy="10" r="1.2" fill="currentColor" />
             <circle cx="15" cy="10" r="1.2" fill="currentColor" />
           </svg>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setShowEmoji(false)
+            setShowGif((v) => !v)
+          }}
+          className={cn(
+            'flex h-9 items-center justify-center rounded-full px-2 text-[11px] font-semibold transition active:scale-95',
+            showGif ? 'bg-brand/15 text-brand' : 'text-ink-dim hover:bg-bg-hover hover:text-ink'
+          )}
+          aria-label="Send GIF"
+        >
+          GIF
         </button>
 
         {/* Text area — pill style */}

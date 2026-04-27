@@ -23,10 +23,26 @@ export interface IMessageSender {
   avatar?: string
 }
 
+export interface IMessageReaction {
+  user: string
+  emoji: string
+  createdAt: string
+}
+
+export interface IMessageReplyPreview {
+  _id: string
+  sender: IMessageSender | string
+  type: MessageType
+  content?: string
+  fileName?: string
+  isDeleted?: boolean
+}
+
 export interface IMessage {
   _id: string
   conversationId: string
   sender: IMessageSender | string
+  replyTo?: IMessageReplyPreview
   type: MessageType
   content?: string
   fileUrl?: string
@@ -34,6 +50,7 @@ export interface IMessage {
   fileSize?: number
   mimeType?: string
   thumbnailUrl?: string
+  reactions: IMessageReaction[]
   readBy: IReadReceipt[]
   deletedFor: string[]
   isDeleted: boolean

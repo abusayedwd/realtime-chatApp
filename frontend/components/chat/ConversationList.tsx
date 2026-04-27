@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useListConversationsQuery } from '@/store/api/conversationApi'
 import { useLogoutMutation } from '@/store/api/authApi'
 import { ConversationItem } from './ConversationItem'
@@ -20,23 +20,30 @@ export const ConversationList = () => {
   const dispatch = useAppDispatch()
   const me = useAppSelector((s) => s.auth.user)
   const socketConnected = useAppSelector((s) => s.chat.socketConnected)
+  const unreadCounts = useAppSelector((s) => s.chat.unreadCounts)
   const { data, isLoading } = useListConversationsQuery()
   const [logout] = useLogoutMutation()
   const [showNew, setShowNew] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [q, setQ] = useState('')
-  const seededRef = useRef<Set<string>>(new Set())
 
 
   useEffect(() => {
     if (!data) return
     data.forEach((c) => {
-      if (!seededRef.current.has(c._id)) {
-        dispatch(setUnreadCount({ conversationId: c._id, count: c.unreadCount ?? 0 }))
-        seededRef.current.add(c._id)
+      const serverCount = c.unreadCount ?? 0
+      const localCount = unreadCounts[c._id]
+      const mergedCount =
+        c._id === activeId
+          ? 0
+          : localCount === 0
+            ? 0
+            : Math.max(localCount ?? 0, serverCount)
+      if ((localCount ?? 0) !== mergedCount) {
+        dispatch(setUnreadCount({ conversationId: c._id, count: mergedCount }))
       }
     })
-  }, [data, dispatch])
+  }, [data, dispatch, activeId, unreadCounts])
 
   const filtered = useMemo(() => {
     if (!data) return []
@@ -79,9 +86,7 @@ export const ConversationList = () => {
             <p className="truncate text-sm font-semibold text-ink leading-tight">
               {me?.name ?? 'Me'}
             </p>
-            <p className="text-[11px] text-ink-dim">
-              {socketConnected ? 'Online' : 'Connecting...'}
-            </p>
+            <p className="text-[11px] text-ink-dim">{socketConnected ? 'Online' : 'Offline'}</p>
           </div>
         </div>
 

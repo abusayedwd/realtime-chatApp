@@ -18,6 +18,7 @@ import { getSocket } from '@/lib/socket'
 import { cn, getSenderId } from '@/lib/utils'
 import { useChatBg } from '@/hooks/useChatBg'
 import { conversationApi } from '@/store/api/conversationApi'
+import type { IMessage } from '@/types'
 
 interface ChatWindowProps {
   conversationId: string
@@ -29,6 +30,7 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
   const me = useAppSelector((s) => s.auth.user)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const [showBgPicker, setShowBgPicker] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<IMessage | null>(null)
   const { bg, setPreset, setCustom, reset, bgStyle } = useChatBg(conversationId)
   const { data: conversation } = useGetConversationQuery(conversationId)
   const { messages, hasMore, loadMore, isFetching } = useInfiniteMessages(conversationId)
@@ -148,6 +150,10 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
     : other?.name ?? 'Conversation'
   const avatar = conversation?.isGroup ? conversation?.groupAvatar : other?.avatar
 
+  useEffect(() => {
+    setReplyingTo(null)
+  }, [conversationId])
+
   return (
     <section className="relative flex h-full flex-1 flex-col overflow-hidden bg-bg/70">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/[0.04] to-transparent" />
@@ -169,7 +175,13 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <h2 className="truncate text-sm font-semibold text-ink leading-tight">{title}</h2>
-          {other && <OnlineStatus userId={other._id} fallbackLastSeen={other.lastSeen} />}
+          {other && (
+            <OnlineStatus
+              userId={other._id}
+              fallbackLastSeen={other.lastSeen}
+              fallbackIsOnline={other.isOnline}
+            />
+          )}
         </div>
 
         {/* Wallpaper button */}
@@ -227,6 +239,8 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                 message={m}
                 showAvatar={!sameSender}
                 participants={conversation?.participants ?? []}
+                conversationId={conversationId}
+                onReply={setReplyingTo}
               />
             )
           })
@@ -234,7 +248,12 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
       </div>
 
       <TypingIndicator conversationId={conversationId} />
-      <MessageInput conversationId={conversationId} socket={socket} />
+      <MessageInput
+        conversationId={conversationId}
+        socket={socket}
+        replyTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+      />
     </section>
   )
 }

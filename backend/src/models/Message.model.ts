@@ -7,10 +7,17 @@ export interface IReadReceipt {
   readAt: Date
 }
 
+export interface IMessageReaction {
+  user: mongoose.Types.ObjectId
+  emoji: string
+  createdAt: Date
+}
+
 export interface IMessage extends Document {
   _id: mongoose.Types.ObjectId
   conversationId: mongoose.Types.ObjectId
   sender: mongoose.Types.ObjectId
+  replyTo?: mongoose.Types.ObjectId
   type: MessageType
   content?: string
   fileUrl?: string
@@ -18,6 +25,7 @@ export interface IMessage extends Document {
   fileSize?: number
   mimeType?: string
   thumbnailUrl?: string
+  reactions: IMessageReaction[]
   readBy: IReadReceipt[]
   deletedFor: mongoose.Types.ObjectId[]
   isDeleted: boolean
@@ -29,6 +37,7 @@ const MessageSchema = new Schema<IMessage>(
   {
     conversationId: { type: Schema.Types.ObjectId, ref: 'Conversation', required: true },
     sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
     type: { type: String, enum: ['text', 'image', 'video', 'file'], default: 'text' },
     content: { type: String, trim: true },
     fileUrl: String,
@@ -36,6 +45,13 @@ const MessageSchema = new Schema<IMessage>(
     fileSize: Number,
     mimeType: String,
     thumbnailUrl: String,
+    reactions: [
+      {
+        user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        emoji: { type: String, required: true, trim: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     readBy: [
       {
         user: { type: Schema.Types.ObjectId, ref: 'User' },
@@ -51,6 +67,7 @@ const MessageSchema = new Schema<IMessage>(
 MessageSchema.index({ conversationId: 1, createdAt: -1 })
 MessageSchema.index({ sender: 1 })
 MessageSchema.index({ 'readBy.user': 1 })
+MessageSchema.index({ 'reactions.user': 1 })
 
 export const Message: Model<IMessage> =
   (mongoose.models.Message as Model<IMessage>) ||
