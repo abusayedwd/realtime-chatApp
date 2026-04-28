@@ -73,10 +73,20 @@ Register → OTP email → Verify (brute-force protected) → Login
 - Presence is derived from socket count: a user only goes offline when the last socket disconnects.
 
 Client → server: `join_conversation`, `leave_conversation`, `send_message`,
-`typing_start`, `typing_stop`, `message_read`, `get_online_users`.
+`typing_start`, `typing_stop`, `message_read`, `get_online_users`,
+`call_user`, `call_response`, `webrtc_offer`, `webrtc_answer`,
+`webrtc_ice_candidate`, `call_end`.
 
 Server → client: `new_message`, `typing`, `messages_read`, `user_online`,
-`user_offline`, `message_deleted`.
+`user_offline`, `message_deleted`, `incoming_call`, `call_response`,
+`webrtc_offer`, `webrtc_answer`, `webrtc_ice_candidate`, `call_ended`.
+
+### Free audio/video call setup (MVP)
+
+- Signaling runs on existing Socket.IO server (no paid provider required).
+- WebRTC uses STUN by default: `stun:stun.l.google.com:19302`.
+- Configure `NEXT_PUBLIC_WEBRTC_STUN_URLS` in frontend env (comma-separated URLs).
+- For small private usage this is usually enough; add TURN later for strict NAT/mobile networks.
 
 ### Read-receipt logic
 

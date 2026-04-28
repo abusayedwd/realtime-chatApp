@@ -95,6 +95,7 @@ export const MessageBubble = ({
   const isTextMsg = message.type === 'text'
   const emojiOnly = isTextMsg && isEmojiOnly(message.content ?? '')
   const emojiCount = emojiOnly ? countEmoji(message.content ?? '') : 0
+  const isCallLog = isTextMsg && (message.content ?? '').startsWith('📞 ')
 
   const reactionGroups = useMemo(() => {
     const map = new Map<string, { emoji: string; users: string[] }>()
@@ -176,6 +177,16 @@ export const MessageBubble = ({
       <div className={cn('flex w-full px-4 py-1', isOwn ? 'justify-end' : 'justify-start')}>
         <div className="rounded-2xl bg-bg-hover px-3.5 py-2 text-sm italic text-ink-muted">
           This message was deleted
+        </div>
+      </div>
+    )
+  }
+
+  if (isCallLog) {
+    return (
+      <div className="flex w-full justify-center px-4 py-1">
+        <div className="rounded-full border border-white/10 bg-bg-panel/80 px-3 py-1 text-[11px] text-ink-muted">
+          {message.content}
         </div>
       </div>
     )

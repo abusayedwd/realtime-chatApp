@@ -8,6 +8,7 @@ import { logger } from '../utils/logger'
 import { registerMessageHandlers } from './handlers/message.handler'
 import { registerTypingHandlers } from './handlers/typing.handler'
 import { registerPresenceHandlers } from './handlers/presence.handler'
+import { registerCallHandlers } from './handlers/call.handler'
 
 export interface SocketData {
   userId: string
@@ -75,6 +76,7 @@ export const initSocket = (httpServer: HttpServer) => {
     registerMessageHandlers(io, socket)
     registerTypingHandlers(io, socket)
     registerPresenceHandlers(io, socket)
+    registerCallHandlers(io, socket)
 
     socket.on('disconnect', async (reason) => {
       logger.info(`Socket disconnected: ${socket.id} (${reason})`)
