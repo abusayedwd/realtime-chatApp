@@ -40,9 +40,20 @@ export const LoginForm = () => {
     } catch (err) {
       const status = (err as { status?: number }).status
       const msg = (err as { message?: string })?.message ?? 'Login failed'
+      const unreachable =
+        status === 0 || /network error/i.test(String(msg))
+
       if (status === 403) {
         dispatch(pushToast(toast.info('Please verify your email first')))
         router.push(`/verify-email?email=${encodeURIComponent(values.email)}`)
+      } else if (unreachable) {
+        dispatch(
+          pushToast(
+            toast.error(
+              'Cannot reach the API server. Ensure the backend is running, BACKEND_INTERNAL_URL is set for Next rewrites, and NEXT_PUBLIC_API_URL uses the same origin as this app (e.g. /api) so the session cookie applies here.'
+            )
+          )
+        )
       } else {
         dispatch(pushToast(toast.error(msg)))
       }
