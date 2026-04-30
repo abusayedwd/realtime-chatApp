@@ -2,14 +2,19 @@
 
 import { io, Socket } from 'socket.io-client'
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:5006'
+function socketUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SOCKET_URL?.trim()
+  if (fromEnv) return fromEnv
+  if (typeof window !== 'undefined') return window.location.origin
+  return 'http://localhost:3000'
+}
 
 let socket: Socket | null = null
 
 export const getSocket = (token: string | null): Socket => {
   if (socket && socket.connected) return socket
   if (!socket) {
-    socket = io(SOCKET_URL, {
+    socket = io(socketUrl(), {
       autoConnect: false,
       withCredentials: true,
       transports: ['websocket', 'polling'],

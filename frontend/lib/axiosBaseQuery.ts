@@ -1,7 +1,8 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import type { BaseQueryFn } from '@reduxjs/toolkit/query'
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5006/api'
+/** Same-origin default so Set-Cookie (refreshToken) matches the Next host; cross-origin breaks middleware. */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api'
 
 export const axiosInstance = axios.create({
   baseURL: API_URL,

@@ -1,7 +1,15 @@
 /** @type {import('next').NextConfig} */
 const backendInternal = process.env.BACKEND_INTERNAL_URL ?? 'http://127.0.0.1:5000'
 
-const allowedDevOrigins = ['10.10.11.118', 'http://10.10.11.118:3005']
+/** Hostnames allowed for Server Actions / dev when not using localhost (e.g. http://192.168.x.x:3005). Comma-separated. */
+const allowedDevOrigins = [
+  ...new Set([
+    ...(process.env.NEXT_DEV_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ]),
+]
 try {
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL
   if (socketUrl?.startsWith('http')) {
@@ -23,7 +31,7 @@ const nextConfig = {
   },
   experimental: { serverActions: { bodySizeLimit: '2mb' } },
 
-  /** When NEXT_PUBLIC_* points at this Next dev server (HTTPS ngrok → :3005), proxy API/socket/uploads to local Express. */
+  /** Proxies /api, /socket.io, /uploads on this dev server to Express (LAN-friendly when NEXT_PUBLIC_* use the same host:port as the browser). */
   async rewrites() {
     return [
       { source: '/api/:path*', destination: `${backendInternal}/api/:path*` },
