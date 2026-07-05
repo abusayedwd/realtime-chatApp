@@ -2,11 +2,10 @@ node_modules
 .next
 dist
 out
-.env
-.env.local
 .env.*.local
 *.log
 coverage
 .DS_Store
 .vscode/
 .idea/
+config.bat
