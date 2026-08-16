@@ -10,6 +10,7 @@ import mongoSanitize from 'express-mongo-sanitize'
 import { env } from './config/env'
 import { apiLimiter } from './middlewares/rateLimiter.middleware'
 import { notFound, errorHandler } from './middlewares/error.middleware'
+import { sendSuccess } from './utils/ApiResponse'
 import routes from './routes'
 
 const app = express()
@@ -47,6 +48,10 @@ app.use(mongoSanitize())
 const uploadsDir = path.join(process.cwd(), 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 app.use('/uploads', express.static(uploadsDir))
+
+app.get('/', (_req, res) => {
+  sendSuccess(res, null, 'Realtime Chat Application server is running')
+})
 
 app.use('/api', apiLimiter, routes)
 
