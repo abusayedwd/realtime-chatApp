@@ -13,8 +13,8 @@ const bootstrap = async () => {
   const httpServer = http.createServer(app)
   initSocket(httpServer)
 
-  httpServer.listen(env.PORT, () => {
-    logger.info(`🚀 Server listening on http://localhost:${env.PORT}`)
+  httpServer.listen(env.PORT, '0.0.0.0', () => {
+    logger.info(`🚀 Server listening on port ${env.PORT}`)
     logger.info(`   NODE_ENV=${env.NODE_ENV}  CLIENT=${env.CLIENT_URL}`)
   })
 
@@ -26,8 +26,12 @@ const bootstrap = async () => {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
-  process.on('unhandledRejection', (reason) => logger.error('UnhandledRejection:', reason))
-  process.on('uncaughtException', (err) => logger.error('UncaughtException:', err))
+  process.on('unhandledRejection', (reason) =>
+    logger.error('UnhandledRejection:', reason)
+  )
+  process.on('uncaughtException', (err) =>
+    logger.error('UncaughtException:', err)
+  )
 }
 
 bootstrap().catch((err) => {
