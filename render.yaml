@@ -56,12 +56,14 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Direct browser → backend calls (cross-origin; backend already sends
-      # SameSite=None; Secure cookies in production so this works over HTTPS).
+      # Same-origin via Next rewrites → refreshToken cookie lands on the
+      # frontend's own domain, which is what middleware.ts checks. Direct
+      # cross-origin calls to the backend leave that cookie invisible to
+      # the frontend's server and the login redirect never fires.
       - key: NEXT_PUBLIC_API_URL
-        value: https://realtime-chatapp-1-srxf.onrender.com/api
+        value: /api
       - key: NEXT_PUBLIC_SOCKET_URL
-        value: https://realtime-chatapp-1-srxf.onrender.com
+        value: ""
       - key: BACKEND_INTERNAL_URL
         value: https://realtime-chatapp-1-srxf.onrender.com
       - key: NEXT_PUBLIC_WEBRTC_STUN_URLS
