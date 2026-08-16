@@ -56,14 +56,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Same-origin via Next rewrites → refreshToken cookie lands on the
-      # frontend's own domain, which is what middleware.ts checks. Direct
-      # cross-origin calls to the backend leave that cookie invisible to
-      # the frontend's server and the login redirect never fires.
+      # REST stays same-origin via Next rewrites so the refreshToken cookie
+      # lands on the frontend's own domain (middleware.ts checks it there).
       - key: NEXT_PUBLIC_API_URL
         value: /api
+      # Socket.IO connects straight to the backend instead of through the
+      # Next rewrite proxy — the client authenticates with an in-memory
+      # token (not the cookie), and Next's rewrite-based WebSocket proxying
+      # isn't reliable in production, which left messages stuck "sending".
       - key: NEXT_PUBLIC_SOCKET_URL
-        value: ""
+        value: https://realtime-chatapp-1-srxf.onrender.com
       - key: BACKEND_INTERNAL_URL
         value: https://realtime-chatapp-1-srxf.onrender.com
       - key: NEXT_PUBLIC_WEBRTC_STUN_URLS
