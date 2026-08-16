@@ -19,7 +19,7 @@ import { cn, getSenderId } from '@/lib/utils'
 import { useChatBg } from '@/hooks/useChatBg'
 import { conversationApi } from '@/store/api/conversationApi'
 import { pushToast, toast } from '@/store/slices/uiSlice'
-import { useWebRTCCall } from '@/hooks/useWebRTCCall'
+import { useCall } from './CallProvider'
 import type { IMessage } from '@/types'
 
 interface ChatWindowProps {
@@ -42,28 +42,9 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
   const topSentinelRef = useRef<HTMLDivElement>(null)
   const lastAutoscrollCount = useRef(0)
   const initialScrollDone = useRef(false)
-  const localVideoRef = useRef<HTMLVideoElement>(null)
-  const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const remoteAudioRef = useRef<HTMLAudioElement>(null)
 
   const socket = useMemo(() => getSocket(accessToken), [accessToken])
-  const {
-    callState,
-    callType,
-    incomingCall,
-    error: callError,
-    localStream,
-    remoteStream,
-    connectedAt,
-    isMuted,
-    isCameraOff,
-    startCall,
-    acceptIncomingCall,
-    rejectIncomingCall,
-    endCall,
-    toggleMute,
-    toggleCamera,
-  } = useWebRTCCall({ socket })
+  const { callState, startCall } = useCall()
 
   // Track active conversation in chat slice → resets unread, drives useSocket
   useEffect(() => {
@@ -176,30 +157,8 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
     setReplyingTo(null)
   }, [conversationId])
 
-  useEffect(() => {
-    if (!callError) return
-    dispatch(pushToast(toast.error(callError)))
-  }, [callError, dispatch])
-
-  useEffect(() => {
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream ?? null
-    }
-  }, [localStream])
-
-  useEffect(() => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStream ?? null
-    }
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.srcObject = callType === 'audio' ? (remoteStream ?? null) : null
-    }
-  }, [callType, remoteStream])
-
   const isOneToOne = Boolean(!conversation?.isGroup && other?._id)
   const isCallLive = callState === 'connected' || callState === 'connecting' || callState === 'calling'
-  const isIncomingForThisConversation =
-    incomingCall?.conversationId === conversationId && incomingCall.fromUserId === other?._id
 
   const handleStartCall = async (kind: 'audio' | 'video') => {
     if (!other?._id) return
@@ -209,42 +168,6 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
       dispatch(pushToast(toast.error((err as Error).message)))
     }
   }
-
-  const handleAcceptCall = async () => {
-    try {
-      await acceptIncomingCall()
-    } catch (err) {
-      dispatch(pushToast(toast.error((err as Error).message)))
-    }
-  }
-
-  const handleRejectCall = async () => {
-    try {
-      await rejectIncomingCall()
-    } catch (err) {
-      dispatch(pushToast(toast.error((err as Error).message)))
-    }
-  }
-
-  const handleEndCall = async () => {
-    await endCall()
-  }
-
-  const [callElapsedSec, setCallElapsedSec] = useState(0)
-  useEffect(() => {
-    if (!connectedAt || callState !== 'connected') {
-      setCallElapsedSec(0)
-      return
-    }
-    const tick = () => setCallElapsedSec(Math.floor((Date.now() - connectedAt) / 1000))
-    tick()
-    const timer = window.setInterval(tick, 1000)
-    return () => window.clearInterval(timer)
-  }, [callState, connectedAt])
-
-  const callDurationLabel = `${String(Math.floor(callElapsedSec / 60)).padStart(2, '0')}:${String(
-    callElapsedSec % 60
-  ).padStart(2, '0')}`
 
   return (
     <section className="relative flex h-full flex-1 flex-col overflow-hidden bg-bg/70">
@@ -325,100 +248,6 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
           onReset={reset}
         />
       </header>
-
-      {isIncomingForThisConversation && (
-        <div className="absolute inset-x-3 top-16 z-20 rounded-2xl border border-white/15 bg-bg-panel/95 p-4 shadow-2xl backdrop-blur">
-          <p className="text-sm font-semibold text-ink">{other?.name ?? 'Someone'} is calling...</p>
-          <p className="mt-1 text-xs text-ink-dim">
-            {incomingCall?.callType === 'video' ? 'Incoming video call' : 'Incoming audio call'}
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={() => void handleAcceptCall()}
-              className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
-            >
-              Accept
-            </button>
-            <button
-              onClick={() => void handleRejectCall()}
-              className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-500"
-            >
-              Reject
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isCallLive && (
-        <div className="absolute inset-x-3 top-16 z-20 rounded-2xl border border-white/15 bg-black/80 p-3 shadow-2xl backdrop-blur">
-          <audio ref={remoteAudioRef} autoPlay playsInline />
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-medium text-white/90">
-              {callState === 'calling' && `Calling ${other?.name ?? 'user'}...`}
-              {callState === 'connecting' && 'Connecting call...'}
-              {callState === 'connected' &&
-                `${callType === 'video' ? 'Video' : 'Audio'} call with ${other?.name ?? 'user'}`}
-            </p>
-            {callState === 'connected' && (
-              <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/85">
-                {callDurationLabel}
-              </span>
-            )}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={toggleMute}
-                className={cn(
-                  'rounded-lg px-2.5 py-1 text-[11px] font-semibold transition',
-                  isMuted ? 'bg-amber-600 text-white' : 'bg-white/15 text-white hover:bg-white/20'
-                )}
-              >
-                {isMuted ? 'Unmute' : 'Mute'}
-              </button>
-              {callType === 'video' && (
-                <button
-                  onClick={toggleCamera}
-                  className={cn(
-                    'rounded-lg px-2.5 py-1 text-[11px] font-semibold transition',
-                    isCameraOff ? 'bg-amber-600 text-white' : 'bg-white/15 text-white hover:bg-white/20'
-                  )}
-                >
-                  {isCameraOff ? 'Camera on' : 'Camera off'}
-                </button>
-              )}
-              <button
-                onClick={() => void handleEndCall()}
-                className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-rose-500"
-              >
-                End
-              </button>
-            </div>
-          </div>
-
-          {callType === 'video' && (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="overflow-hidden rounded-xl border border-white/15 bg-black/60">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="h-32 w-full object-cover"
-                />
-                <p className="border-t border-white/10 px-2 py-1 text-[10px] text-white/80">Remote</p>
-              </div>
-              <div className="overflow-hidden rounded-xl border border-white/15 bg-black/60">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="h-32 w-full object-cover"
-                />
-                <p className="border-t border-white/10 px-2 py-1 text-[10px] text-white/80">You</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Messages ── */}
       <div
