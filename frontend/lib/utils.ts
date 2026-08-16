@@ -45,3 +45,26 @@ export const uniqueById = <T extends { _id: string }>(items: T[]): T[] => {
   const seen = new Set<string>()
   return items.filter((i) => (seen.has(i._id) ? false : (seen.add(i._id), true)))
 }
+
+/**
+ * Forces a real file save (not just a browser navigation/preview) even when
+ * the file is hosted cross-origin, by fetching it as a blob first — the
+ * plain `<a download>` attribute is ignored by browsers for cross-origin URLs.
+ */
+export const downloadFile = async (url: string, filename?: string) => {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('Download failed')
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = filename ?? 'download'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(objectUrl)
+  } catch {
+    window.open(url, '_blank', 'noreferrer')
+  }
+}

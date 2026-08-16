@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch'
 import { closeLightbox } from '@/store/slices/uiSlice'
+import { downloadFile } from '@/lib/utils'
 
 export const ImageLightbox = () => {
   const url = useAppSelector((s) => s.ui.lightboxUrl)
@@ -30,6 +31,24 @@ export const ImageLightbox = () => {
         className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       />
+      <button
+        className="absolute right-16 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+        onClick={(e) => {
+          e.stopPropagation()
+          downloadFile(url, url.split('/').pop()?.split('?')[0] || 'image')
+        }}
+        aria-label="Download"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
       <button
         className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
         onClick={() => dispatch(closeLightbox())}

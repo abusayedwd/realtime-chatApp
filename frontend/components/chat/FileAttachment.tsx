@@ -1,4 +1,4 @@
-import { cn, formatBytes } from '@/lib/utils'
+import { cn, downloadFile, formatBytes } from '@/lib/utils'
 
 interface FileAttachmentProps {
   url: string
@@ -9,11 +9,9 @@ interface FileAttachmentProps {
 }
 
 export const FileAttachment = ({ url, name, size, mimeType, isOwn }: FileAttachmentProps) => (
-  <a
-    href={url}
-    download={name}
-    target="_blank"
-    rel="noreferrer"
+  <button
+    type="button"
+    onClick={() => downloadFile(url, name)}
     className={cn(
       'flex max-w-xs items-center gap-3 rounded-lg border px-3 py-2.5 transition',
       isOwn
@@ -45,5 +43,5 @@ export const FileAttachment = ({ url, name, size, mimeType, isOwn }: FileAttachm
         {[mimeType, size && formatBytes(size)].filter(Boolean).join(' · ')}
       </span>
     </div>
-  </a>
+  </button>
 )

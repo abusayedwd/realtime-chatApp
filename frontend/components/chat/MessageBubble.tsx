@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { cn, formatTime, getSenderId } from '@/lib/utils'
+import { cn, downloadFile, formatTime, getSenderId } from '@/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch'
 import { openLightbox, pushToast, toast } from '@/store/slices/uiSlice'
 import { Avatar } from '@/components/ui/Avatar'
@@ -372,16 +372,37 @@ export const MessageBubble = ({
               )}
 
               {message.type === 'image' && message.fileUrl && (
-                <img
-                  src={message.fileUrl}
-                  alt={message.fileName ?? 'image'}
-                  className="max-h-80 max-w-xs cursor-zoom-in rounded-lg object-cover"
-                  onClick={() => dispatch(openLightbox(message.fileUrl!))}
-                />
+                <div className="group/media relative inline-block">
+                  <img
+                    src={message.fileUrl}
+                    alt={message.fileName ?? 'image'}
+                    className="max-h-80 max-w-xs cursor-zoom-in rounded-lg object-cover"
+                    onClick={() => dispatch(openLightbox(message.fileUrl!))}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      downloadFile(message.fileUrl!, message.fileName)
+                    }}
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition hover:bg-black/70 group-hover/media:opacity-100"
+                    aria-label="Download image"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
               )}
 
               {message.type === 'video' && message.fileUrl && (
-                <VideoPlayer src={message.fileUrl} poster={message.thumbnailUrl} />
+                <VideoPlayer src={message.fileUrl} poster={message.thumbnailUrl} fileName={message.fileName} />
               )}
 
               {message.type === 'file' && message.fileUrl && (

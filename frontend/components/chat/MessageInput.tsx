@@ -44,6 +44,8 @@ export const MessageInput = ({
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const [text, setText] = useState('')
   const [uploading, setUploading] = useState<number | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showEmoji, setShowEmoji] = useState(false)
   const [showGif, setShowGif] = useState(false)
   const [gifQuery, setGifQuery] = useState('')
@@ -62,6 +64,13 @@ export const MessageInput = ({
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   }, [text])
+
+  // Revoke the object URL used for image previews once it's replaced/cleared
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
 
   // Close emoji picker on outside click
   useEffect(() => {
@@ -190,8 +199,40 @@ export const MessageInput = ({
     })
   }
 
+  const cancelFile = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setSelectedFile(null)
+    setPreviewUrl(null)
+  }
+
+  const sendSelectedFile = async () => {
+    const file = selectedFile
+    if (!file) return
+    cancelFile()
+    try {
+      setUploading(0)
+      await uploadFile(
+        conversationId,
+        file,
+        accessToken,
+        { replyTo: replyTo?._id },
+        (pct) => setUploading(pct)
+      )
+      onCancelReply?.()
+    } catch (err) {
+      const msg = (err as { message?: string }).message ?? 'Upload failed'
+      dispatch(pushToast(toast.error(msg)))
+    } finally {
+      setUploading(null)
+    }
+  }
+
   const sendText = (e?: FormEvent) => {
     e?.preventDefault()
+    if (selectedFile) {
+      sendSelectedFile()
+      return
+    }
     const content = text.trim()
     if (!content || !currentUser || !socket) return
 
@@ -273,7 +314,7 @@ export const MessageInput = ({
     }
   }
 
-  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
@@ -281,22 +322,9 @@ export const MessageInput = ({
       dispatch(pushToast(toast.error('File too large (max 50MB)')))
       return
     }
-    try {
-      setUploading(0)
-      await uploadFile(
-        conversationId,
-        file,
-        accessToken,
-        { replyTo: replyTo?._id },
-        (pct) => setUploading(pct)
-      )
-      onCancelReply?.()
-    } catch (err) {
-      const msg = (err as { message?: string }).message ?? 'Upload failed'
-      dispatch(pushToast(toast.error(msg)))
-    } finally {
-      setUploading(null)
-    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setSelectedFile(file)
+    setPreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null)
   }
 
   const sendGif = async (url: string, title = 'GIF') => {
@@ -382,7 +410,7 @@ export const MessageInput = ({
     onCancelReply?.()
   }
 
-  const canSend = text.trim().length > 0
+  const canSend = text.trim().length > 0 || selectedFile !== null
 
   return (
     <div className="relative shrink-0 border-t border-line bg-bg-panel">
@@ -456,6 +484,45 @@ export const MessageInput = ({
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* Staged file preview — awaits Send click */}
+      {selectedFile && uploading === null && (
+        <div className="flex items-center gap-3 border-b border-line/70 bg-bg-hover/60 px-3 py-2">
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={selectedFile.name}
+              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg-elevated text-ink-dim">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+                <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              </svg>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-ink">{selectedFile.name}</p>
+            <p className="text-[11px] text-ink-dim">{(selectedFile.size / 1024).toFixed(0)} KB</p>
+          </div>
+          <button
+            type="button"
+            onClick={cancelFile}
+            className="shrink-0 rounded-md p-1 text-ink-dim transition hover:bg-white/10 hover:text-ink"
+            aria-label="Remove file"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
       )}
 
@@ -542,8 +609,9 @@ export const MessageInput = ({
             }}
             onKeyDown={handleKeyDown}
             onBlur={stopTyping}
-            placeholder="Message…"
-            className="max-h-28 w-full resize-none bg-transparent px-4 py-2.5 text-sm text-ink placeholder:text-ink-dim outline-none"
+            placeholder={selectedFile ? 'Press send to share the file…' : 'Message…'}
+            disabled={selectedFile !== null}
+            className="max-h-28 w-full resize-none bg-transparent px-4 py-2.5 text-sm text-ink placeholder:text-ink-dim outline-none disabled:opacity-60"
             style={{ minHeight: '38px' }}
           />
         </div>
