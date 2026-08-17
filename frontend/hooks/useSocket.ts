@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { Socket } from 'socket.io-client'
-import { getSocket, disconnectSocket } from '@/lib/socket'
+import { getSocket, disconnectSocket, isCallActive } from '@/lib/socket'
 import { useAppDispatch, useAppSelector } from './useAppDispatch'
 import {
   setSocketConnected,
@@ -281,13 +281,13 @@ export const useSocket = () => {
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        if (socket.connected) socket.disconnect()
+        if (socket.connected && !isCallActive()) socket.disconnect()
       } else {
         markUserActive()
       }
     }
     const onPageHide = () => {
-      if (socket.connected) socket.disconnect()
+      if (socket.connected && !isCallActive()) socket.disconnect()
     }
     window.addEventListener('focus', markUserActive)
     window.addEventListener('pointerdown', markUserActive)

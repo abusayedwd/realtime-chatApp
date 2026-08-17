@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch'
-import { getSocket } from '@/lib/socket'
+import { getSocket, setCallActive } from '@/lib/socket'
 import { useWebRTCCall } from '@/hooks/useWebRTCCall'
 import { useGetConversationQuery } from '@/store/api/conversationApi'
 import { pushToast, toast } from '@/store/slices/uiSlice'
@@ -79,6 +79,11 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
   const caller = callConversation?.participants.find((p) => p._id === incomingCall?.fromUserId)
 
   useRingtone(callState === 'ringing' && Boolean(incomingCall))
+
+  useEffect(() => {
+    setCallActive(callState !== 'idle')
+    return () => setCallActive(false)
+  }, [callState])
 
   useEffect(() => {
     if (!callError) return

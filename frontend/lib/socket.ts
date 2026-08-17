@@ -11,6 +11,14 @@ function socketUrl(): string {
 
 let socket: Socket | null = null
 
+// Set while a call is ringing/connecting/connected so the tab-hidden
+// auto-disconnect (below) doesn't tear down the signaling channel mid-call.
+let callActive = false
+export const setCallActive = (active: boolean) => {
+  callActive = active
+}
+export const isCallActive = () => callActive
+
 export const getSocket = (token: string | null): Socket => {
   if (socket && socket.connected) return socket
   if (!socket) {
