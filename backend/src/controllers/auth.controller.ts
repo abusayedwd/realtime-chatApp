@@ -69,9 +69,14 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 export const refresh = asyncHandler(async (req: Request, res: Response) => {
   const token = req.cookies?.[REFRESH_COOKIE_NAME]
   if (!token) throw new ApiError(401, 'No refresh token provided')
-  const { accessToken, refreshToken, user } = await refreshSession(token)
-  setRefreshCookie(res, refreshToken)
-  return sendSuccess(res, { accessToken, user }, 'Token refreshed')
+  try {
+    const { accessToken, refreshToken, user } = await refreshSession(token)
+    setRefreshCookie(res, refreshToken)
+    return sendSuccess(res, { accessToken, user }, 'Token refreshed')
+  } catch (err) {
+    clearRefreshCookie(res)
+    throw err
+  }
 })
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {

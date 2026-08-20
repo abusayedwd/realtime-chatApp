@@ -58,25 +58,30 @@ export const initSocket = (httpServer: HttpServer) => {
     }
   })
 
-  io.on('connection', async (socket: ChatSocket) => {
+  io.on('connection', (socket: ChatSocket) => {
     const { userId } = socket.data
     logger.info(`Socket connected: ${socket.id} (user=${userId})`)
 
-    // Personal room — lets us target a single user across tabs
+    // Personal room — required immediately for incoming_call / DMs
     socket.join(`user:${userId}`)
 
-    // Mark online + broadcast presence
-    await User.findByIdAndUpdate(userId, { isOnline: true, lastSeen: new Date() })
-    socket.broadcast.emit('user_online', { userId })
-
-    // Join all conversation rooms this user belongs to
-    const conversations = await Conversation.find({ participants: userId }).select('_id').lean()
-    conversations.forEach((c) => socket.join(String(c._id)))
-
+    // Register handlers before any async DB work so early events (e.g. call_user) are not dropped
     registerMessageHandlers(io, socket)
     registerTypingHandlers(io, socket)
     registerPresenceHandlers(io, socket)
     registerCallHandlers(io, socket)
+
+    void (async () => {
+      try {
+        await User.findByIdAndUpdate(userId, { isOnline: true, lastSeen: new Date() })
+        socket.broadcast.emit('user_online', { userId })
+
+        const conversations = await Conversation.find({ participants: userId }).select('_id').lean()
+        conversations.forEach((c) => socket.join(String(c._id)))
+      } catch (err) {
+        logger.warn(`Socket setup failed for user=${userId}:`, err)
+      }
+    })()
 
     socket.on('disconnect', async (reason) => {
       logger.info(`Socket disconnected: ${socket.id} (${reason})`)
