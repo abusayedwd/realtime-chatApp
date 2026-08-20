@@ -19,7 +19,15 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     if (hydrated && !isAuthenticated) router.replace('/login')
   }, [hydrated, isAuthenticated, router])
 
-  if (!hydrated || !isAuthenticated) return null
+  if (!hydrated) return null
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-bg">
+        <p className="text-sm text-ink-muted">Redirecting to login...</p>
+      </div>
+    )
+  }
 
   return (
     <CallProvider>

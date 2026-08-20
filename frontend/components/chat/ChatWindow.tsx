@@ -200,27 +200,50 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
         </div>
 
         {isOneToOne && (
-          <button
-            onClick={() => void handleStartCall('audio')}
-            disabled={isCallLive}
-            title="Start audio call"
-            className={cn(
-              'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] transition active:scale-95',
-              isCallLive
-                ? 'cursor-not-allowed text-ink-dim opacity-60'
-                : 'text-ink-muted hover:bg-white/10 hover:text-ink'
-            )}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M6.6 10.8a15.5 15.5 0 006.6 6.6l2.2-2.2a1 1 0 011-.24 11.4 11.4 0 003.6.58 1 1 0 011 1V20a1 1 0 01-1 1C11.8 21 3 12.2 3 2.99a1 1 0 011-1H7.4a1 1 0 011 1c0 1.25.2 2.46.58 3.6a1 1 0 01-.24 1L6.6 10.8z"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+          <>
+            <button
+              onClick={() => void handleStartCall('audio')}
+              disabled={isCallLive}
+              title="Start audio call"
+              className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] transition active:scale-95',
+                isCallLive
+                  ? 'cursor-not-allowed text-ink-dim opacity-60'
+                  : 'text-ink-muted hover:bg-white/10 hover:text-ink'
+              )}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M6.6 10.8a15.5 15.5 0 006.6 6.6l2.2-2.2a1 1 0 011-.24 11.4 11.4 0 003.6.58 1 1 0 011 1V20a1 1 0 01-1 1C11.8 21 3 12.2 3 2.99a1 1 0 011-1H7.4a1 1 0 011 1c0 1.25.2 2.46.58 3.6a1 1 0 01-.24 1L6.6 10.8z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => void handleStartCall('video')}
+              disabled={isCallLive}
+              title="Start video call"
+              className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] transition active:scale-95',
+                isCallLive
+                  ? 'cursor-not-allowed text-ink-dim opacity-60'
+                  : 'text-ink-muted hover:bg-white/10 hover:text-ink'
+              )}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </>
         )}
 
         {/* Wallpaper button */}

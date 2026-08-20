@@ -21,11 +21,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (refreshToken && isPublic) {
-    const url = req.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
-  }
+  // Do not redirect /login → / just because a cookie exists — it may be expired.
+  // SessionBootstrap validates the refresh token client-side.
 
   return NextResponse.next()
 }

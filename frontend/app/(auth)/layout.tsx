@@ -1,8 +1,10 @@
 import { ReactNode } from 'react'
+import { AuthRedirectIfLoggedIn } from '@/components/auth/AuthRedirectIfLoggedIn'
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <main className="relative flex min-h-screen w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-bg px-4 py-10">
+      <AuthRedirectIfLoggedIn />
       {/* Background blobs */}
       <div className="pointer-events-none fixed inset-0 -z-0 overflow-hidden">
         <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-brand/20 blur-[120px]" />

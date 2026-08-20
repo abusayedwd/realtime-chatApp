@@ -45,3 +45,31 @@ export const disconnectSocket = () => {
     socket = null
   }
 }
+
+/** Connect if needed; resolves when socket is ready or rejects on timeout. */
+export const ensureSocketConnected = (token: string | null, timeoutMs = 8000): Promise<Socket> =>
+  new Promise((resolve, reject) => {
+    const s = getSocket(token)
+    if (s.connected) {
+      resolve(s)
+      return
+    }
+    const timer = setTimeout(() => {
+      s.off('connect', onConnect)
+      s.off('connect_error', onError)
+      reject(new Error('Realtime connection unavailable — check backend on port 5000'))
+    }, timeoutMs)
+    const onConnect = () => {
+      clearTimeout(timer)
+      s.off('connect_error', onError)
+      resolve(s)
+    }
+    const onError = (err: Error) => {
+      clearTimeout(timer)
+      s.off('connect', onConnect)
+      reject(err)
+    }
+    s.once('connect', onConnect)
+    s.once('connect_error', onError)
+    s.connect()
+  })

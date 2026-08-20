@@ -10,6 +10,7 @@ import { uploadFile } from '@/store/api/messageApi'
 import { messageApi } from '@/store/api/messageApi'
 import { pushToast, toast } from '@/store/slices/uiSlice'
 import { cn, uniqueById } from '@/lib/utils'
+import { ensureSocketConnected } from '@/lib/socket'
 import type { IMessage } from '@/types'
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
@@ -230,16 +231,16 @@ export const MessageInput = ({
   const sendText = (e?: FormEvent) => {
     e?.preventDefault()
     if (selectedFile) {
-      sendSelectedFile()
+      void sendSelectedFile()
       return
     }
     const content = text.trim()
-    if (!content || !currentUser || !socket) return
+    if (!content || !currentUser) return
 
     stopTyping()
     setShowEmoji(false)
     setText('')
-    keepFocus() // keep keyboard open on mobile
+    keepFocus()
 
     const clientTempId =
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -284,23 +285,36 @@ export const MessageInput = ({
       })
     )
 
-    socket.emit(
-      'send_message',
-      { conversationId, type: 'text', content, clientTempId, replyTo: replyTo?._id },
-      (res: { ok: boolean; message?: IMessage; error?: string; clientTempId?: string }) => {
-        if (!res.ok) {
-          dispatch(
-            messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
-              if (!draft) return
-              const m = draft.items.find((x) => x.clientTempId === clientTempId)
-              if (m) m.status = 'failed'
-            })
-          )
-          dispatch(pushToast(toast.error(res.error ?? 'Failed to send message')))
-        }
-      }
-    )
-    onCancelReply?.()
+    void ensureSocketConnected(accessToken)
+      .then((liveSocket) => {
+        liveSocket.emit(
+          'send_message',
+          { conversationId, type: 'text', content, clientTempId, replyTo: replyTo?._id },
+          (res: { ok: boolean; message?: IMessage; error?: string; clientTempId?: string }) => {
+            if (!res.ok) {
+              dispatch(
+                messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
+                  if (!draft) return
+                  const m = draft.items.find((x) => x.clientTempId === clientTempId)
+                  if (m) m.status = 'failed'
+                })
+              )
+              dispatch(pushToast(toast.error(res.error ?? 'Failed to send message')))
+            }
+          }
+        )
+        onCancelReply?.()
+      })
+      .catch((err) => {
+        dispatch(
+          messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
+            if (!draft) return
+            const m = draft.items.find((x) => x.clientTempId === clientTempId)
+            if (m) m.status = 'failed'
+          })
+        )
+        dispatch(pushToast(toast.error((err as Error).message)))
+      })
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -329,7 +343,7 @@ export const MessageInput = ({
 
   const sendGif = async (url: string, title = 'GIF') => {
     const cleanUrl = url.trim()
-    if (!url || !currentUser || !socket) return
+    if (!url || !currentUser) return
     if (!/^https?:\/\//i.test(cleanUrl)) {
       dispatch(pushToast(toast.error('Invalid GIF URL')))
       return
@@ -380,34 +394,46 @@ export const MessageInput = ({
       })
     )
 
-    socket.emit(
-      'send_message',
-      {
-        conversationId,
-        type: 'image',
-        fileUrl: cleanUrl,
-        fileName: title,
-        mimeType: 'image/gif',
-        clientTempId,
-        replyTo: replyTo?._id,
-      },
-      (res: { ok: boolean; error?: string }) => {
-        if (!res.ok) {
-          dispatch(
-            messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
-              if (!draft) return
-              const m = draft.items.find((x) => x.clientTempId === clientTempId)
-              if (m) m.status = 'failed'
-            })
-          )
-          dispatch(pushToast(toast.error(res.error ?? 'Failed to send GIF')))
-        }
-      }
-    )
-
-    setGifQuery('')
-    setShowGif(false)
-    onCancelReply?.()
+    void ensureSocketConnected(accessToken)
+      .then((liveSocket) => {
+        liveSocket.emit(
+          'send_message',
+          {
+            conversationId,
+            type: 'image',
+            fileUrl: cleanUrl,
+            fileName: title,
+            mimeType: 'image/gif',
+            clientTempId,
+            replyTo: replyTo?._id,
+          },
+          (res: { ok: boolean; error?: string }) => {
+            if (!res.ok) {
+              dispatch(
+                messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
+                  if (!draft) return
+                  const m = draft.items.find((x) => x.clientTempId === clientTempId)
+                  if (m) m.status = 'failed'
+                })
+              )
+              dispatch(pushToast(toast.error(res.error ?? 'Failed to send GIF')))
+            }
+          }
+        )
+        setGifQuery('')
+        setShowGif(false)
+        onCancelReply?.()
+      })
+      .catch((err) => {
+        dispatch(
+          messageApi.util.updateQueryData('getMessages', { conversationId }, (draft) => {
+            if (!draft) return
+            const m = draft.items.find((x) => x.clientTempId === clientTempId)
+            if (m) m.status = 'failed'
+          })
+        )
+        dispatch(pushToast(toast.error((err as Error).message)))
+      })
   }
 
   const canSend = text.trim().length > 0 || selectedFile !== null
