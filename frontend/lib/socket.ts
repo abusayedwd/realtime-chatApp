@@ -2,11 +2,34 @@
 
 import { io, Socket } from 'socket.io-client'
 
+type SocketTransport = 'websocket' | 'polling'
+
 function socketUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_SOCKET_URL?.trim()
   if (fromEnv) return fromEnv
   if (typeof window !== 'undefined') return window.location.origin
   return 'http://localhost:3000'
+}
+
+/** Vercel rewrites proxy HTTP polling to the VPS backend, but WebSocket upgrade (wss://…) fails. */
+function socketTransports(): SocketTransport[] {
+  const override = process.env.NEXT_PUBLIC_SOCKET_TRANSPORTS?.trim()
+  if (override) {
+    return override
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t): t is SocketTransport => t === 'websocket' || t === 'polling')
+  }
+
+  const directUrl = process.env.NEXT_PUBLIC_SOCKET_URL?.trim()
+  if (directUrl) return ['websocket', 'polling']
+
+  // Same-origin proxy (e.g. Vercel + BACKEND_INTERNAL_URL): polling only.
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return ['polling']
+  }
+
+  return ['websocket', 'polling']
 }
 
 let socket: Socket | null = null
@@ -25,7 +48,8 @@ export const getSocket = (token: string | null): Socket => {
     socket = io(socketUrl(), {
       autoConnect: false,
       withCredentials: true,
-      transports: ['websocket', 'polling'],
+      transports: socketTransports(),
+      upgrade: socketTransports().includes('websocket'),
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
@@ -57,7 +81,11 @@ export const ensureSocketConnected = (token: string | null, timeoutMs = 8000): P
     const timer = setTimeout(() => {
       s.off('connect', onConnect)
       s.off('connect_error', onError)
-      reject(new Error('Realtime connection unavailable — check backend on port 5000'))
+      reject(
+        new Error(
+          'Realtime connection unavailable — check BACKEND_INTERNAL_URL (Vercel) or backend socket port (local)'
+        )
+      )
     }, timeoutMs)
     const onConnect = () => {
       clearTimeout(timer)
