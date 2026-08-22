@@ -66,6 +66,7 @@ export const MessageBubble = ({
   const [showReactions, setShowReactions] = useState(false)
   const [showMoreReactions, setShowMoreReactions] = useState(false)
   const [showDeleteMenu, setShowDeleteMenu] = useState(false)
+  const [imageFailed, setImageFailed] = useState(false)
   const quickReactionRef = useRef<HTMLDivElement>(null)
   const moreReactionRef = useRef<HTMLDivElement>(null)
   const deleteMenuRef = useRef<HTMLDivElement>(null)
@@ -371,13 +372,29 @@ export const MessageBubble = ({
                 </div>
               )}
 
-              {message.type === 'image' && message.fileUrl && (
+              {message.type === 'image' && message.fileUrl && imageFailed && (
+                <div className="flex h-32 w-48 flex-col items-center justify-center gap-1 rounded-lg bg-bg-elevated text-ink-dim">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M4 5h16v14H4V5zm0 14l5-6 3 3 4-5 4 8M9 9a1 1 0 100-2 1 1 0 000 2z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="text-[11px]">Image unavailable</span>
+                </div>
+              )}
+
+              {message.type === 'image' && message.fileUrl && !imageFailed && (
                 <div className="group/media relative inline-block">
                   <img
                     src={message.fileUrl}
                     alt={message.fileName ?? 'image'}
                     className="max-h-80 max-w-xs cursor-zoom-in rounded-lg object-cover"
                     onClick={() => dispatch(openLightbox(message.fileUrl!))}
+                    onError={() => setImageFailed(true)}
                   />
                   <button
                     type="button"

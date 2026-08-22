@@ -16,8 +16,14 @@ import type { IMessage } from '@/types'
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024
+// Giphy requires a free API key (developers.giphy.com, instant signup, no
+// card needed) — there's no working public/shared key anymore, Giphy has
+// banned every well-known one from being reused this way.
 const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY
-const TENOR_API_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? 'LIVDSRZULELA'
+// Tenor's v1 API (and its old public test key) was shut down by Google —
+// v2 requires a real Google Cloud API key, so this fallback only activates
+// if the user configures one.
+const TENOR_API_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY
 const TENOR_CLIENT_KEY = 'chatapp-web'
 
 interface GifItem {
@@ -135,9 +141,11 @@ export const MessageInput = ({
     }
 
     const loadFromTenor = async (): Promise<GifItem[]> => {
+      if (!TENOR_API_KEY) return []
+      // Tenor v2 (googleapis.com) — v1 (g.tenor.com) was discontinued by Google.
       const endpoint = q
-        ? `https://g.tenor.com/v1/search?key=${encodeURIComponent(TENOR_API_KEY)}&client_key=${encodeURIComponent(TENOR_CLIENT_KEY)}&q=${encodeURIComponent(q)}&limit=24&contentfilter=medium`
-        : `https://g.tenor.com/v1/trending?key=${encodeURIComponent(TENOR_API_KEY)}&client_key=${encodeURIComponent(TENOR_CLIENT_KEY)}&limit=24&contentfilter=medium`
+        ? `https://tenor.googleapis.com/v2/search?key=${encodeURIComponent(TENOR_API_KEY)}&client_key=${encodeURIComponent(TENOR_CLIENT_KEY)}&q=${encodeURIComponent(q)}&limit=24&contentfilter=medium&media_filter=gif,tinygif`
+        : `https://tenor.googleapis.com/v2/featured?key=${encodeURIComponent(TENOR_API_KEY)}&client_key=${encodeURIComponent(TENOR_CLIENT_KEY)}&limit=24&contentfilter=medium&media_filter=gif,tinygif`
       const res = await fetch(endpoint, { signal: controller.signal })
       if (!res.ok) throw new Error('Tenor fetch failed')
       const json = (await res.json()) as {
@@ -145,17 +153,16 @@ export const MessageInput = ({
           id?: string
           title?: string
           content_description?: string
-          media?: Array<{
+          media_formats?: {
             gif?: { url?: string }
             tinygif?: { url?: string }
-          }>
+          }
         }>
       }
       return (json.results ?? [])
         .map((it) => {
-          const media = it.media?.[0]
-          const url = media?.gif?.url
-          const previewUrl = media?.tinygif?.url ?? url
+          const url = it.media_formats?.gif?.url
+          const previewUrl = it.media_formats?.tinygif?.url ?? url
           if (!url || !previewUrl) return null
           return {
             id: it.id ?? `${Math.random()}`,
@@ -494,6 +501,11 @@ export const MessageInput = ({
           <div className="mt-2 grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1">
             {gifLoading ? (
               <div className="col-span-2 py-6 text-center text-xs text-ink-dim">Loading GIFs...</div>
+            ) : !GIPHY_API_KEY && !TENOR_API_KEY ? (
+              <div className="col-span-2 py-6 text-center text-xs text-ink-dim">
+                GIF search needs a free Giphy API key — set NEXT_PUBLIC_GIPHY_API_KEY
+                (get one instantly at developers.giphy.com)
+              </div>
             ) : gifItems.length === 0 ? (
               <div className="col-span-2 py-6 text-center text-xs text-ink-dim">No GIF found</div>
             ) : (
