@@ -61,13 +61,36 @@ const RING_TIMEOUT_MS = 30_000
 const CONNECT_TIMEOUT_MS = 30_000
 
 const parseIceServers = (): RTCIceServer[] => {
-  const urls = (process.env.NEXT_PUBLIC_WEBRTC_STUN_URLS ?? 'stun:stun.l.google.com:19302')
+  const stunUrls = (
+    process.env.NEXT_PUBLIC_WEBRTC_STUN_URLS ??
+    'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'
+  )
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean)
 
-  return urls.length > 0 ? [{ urls }] : [{ urls: ['stun:stun.l.google.com:19302'] }]
+  const servers: RTCIceServer[] = []
+  if (stunUrls.length > 0) servers.push({ urls: stunUrls })
+
+  const turnUrls = (process.env.NEXT_PUBLIC_WEBRTC_TURN_URLS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+
+  if (turnUrls.length > 0) {
+    const username = process.env.NEXT_PUBLIC_WEBRTC_TURN_USERNAME?.trim()
+    const credential = process.env.NEXT_PUBLIC_WEBRTC_TURN_CREDENTIAL?.trim()
+    servers.push({
+      urls: turnUrls,
+      ...(username && credential ? { username, credential } : {}),
+    })
+  }
+
+  return servers.length > 0 ? servers : [{ urls: ['stun:stun.l.google.com:19302'] }]
 }
+
+const ICE_FAIL_MSG =
+  'Call connection failed — users on different networks/mobile need TURN (NEXT_PUBLIC_WEBRTC_TURN_* env vars)'
 
 const emitWithAck = (socket: Socket, event: string, payload: unknown, timeoutMs = 15_000): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -304,7 +327,7 @@ export const useWebRTCCall = ({ socket, accessToken }: UseWebRTCCallOptions) => 
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') markConnected()
         if (pc.connectionState === 'failed') {
-          setError('Call connection failed — check network or try again')
+          setError(ICE_FAIL_MSG)
           notifyPeerCallEnd('connection-failed')
           endCallLocal()
         }
@@ -315,7 +338,7 @@ export const useWebRTCCall = ({ socket, accessToken }: UseWebRTCCallOptions) => 
           markConnected()
         }
         if (pc.iceConnectionState === 'failed') {
-          setError('Call connection failed — check network or try again')
+          setError(ICE_FAIL_MSG)
           notifyPeerCallEnd('connection-failed')
           endCallLocal()
         }
