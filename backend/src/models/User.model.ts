@@ -17,6 +17,7 @@ export interface IUser extends Document {
   passwordResetExpires?: Date
   isOnline: boolean
   lastSeen: Date
+  blockedUsers: mongoose.Types.ObjectId[]
   createdAt: Date
   updatedAt: Date
   comparePassword(password: string): Promise<boolean>
@@ -38,6 +39,7 @@ const UserSchema = new Schema<IUser>(
     passwordResetExpires: { type: Date, select: false },
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
+    blockedUsers: [{ type: Schema.Types.ObjectId, ref: 'User', default: [] }],
   },
   { timestamps: true }
 )

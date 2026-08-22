@@ -7,6 +7,7 @@ import { Conversation } from '../models/Conversation.model'
 import { Message } from '../models/Message.model'
 import { User } from '../models/User.model'
 import { getIO } from '../socket/socket'
+import { isBlockedEitherWay } from '../services/block.service'
 
 export const listConversations = asyncHandler(async (req: Request, res: Response) => {
   const userId = new mongoose.Types.ObjectId(req.user!.userId)
@@ -52,6 +53,10 @@ export const createOrGetDM = asyncHandler(async (req: Request, res: Response) =>
 
   const otherUser = await User.findById(other)
   if (!otherUser) throw new ApiError(404, 'User not found')
+
+  if (await isBlockedEitherWay(me.toString(), other.toString())) {
+    throw new ApiError(403, 'Cannot message this user')
+  }
 
   let convo = await Conversation.findOne({
     isGroup: false,

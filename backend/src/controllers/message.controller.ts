@@ -7,6 +7,7 @@ import { Conversation } from '../models/Conversation.model'
 import { Message } from '../models/Message.model'
 import { uploadBufferToCloudinary } from '../services/file.service'
 import { getIO } from '../socket/socket'
+import { isBlockedEitherWay } from '../services/block.service'
 
 const MESSAGE_POPULATE = [
   { path: 'sender', select: 'name email avatar' },
@@ -45,6 +46,19 @@ const assertParticipant = async (conversationId: string, userId: string) => {
   })
   if (!convo) throw new ApiError(403, 'You are not a participant in this conversation')
   return convo
+}
+
+/** In a 1:1 chat, block either direction stops new messages. */
+const assertNotBlocked = async (
+  convo: { isGroup: boolean; participants: mongoose.Types.ObjectId[] },
+  userId: string
+) => {
+  if (convo.isGroup) return
+  const other = convo.participants.find((p) => p.toString() !== userId)
+  if (!other) return
+  if (await isBlockedEitherWay(userId, other.toString())) {
+    throw new ApiError(403, 'Cannot message this user')
+  }
 }
 
 export const getMessages = asyncHandler(async (req: Request, res: Response) => {
@@ -92,6 +106,7 @@ export const sendTextMessage = asyncHandler(async (req: Request, res: Response) 
   }
 
   const convo = await assertParticipant(conversationId, userId)
+  await assertNotBlocked(convo, userId)
 
   if (replyTo) {
     const base = await Message.findOne({ _id: replyTo, conversationId }).select('_id')
@@ -133,6 +148,7 @@ export const uploadAndSend = asyncHandler(async (req: Request, res: Response) =>
 
   if (!req.file) throw new ApiError(400, 'No file provided')
   const convo = await assertParticipant(conversationId, userId)
+  await assertNotBlocked(convo, userId)
 
   if (replyTo) {
     const base = await Message.findOne({ _id: replyTo, conversationId }).select('_id')

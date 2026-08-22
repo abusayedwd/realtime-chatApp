@@ -27,6 +27,7 @@ export interface SafeUser {
   isVerified: boolean
   isOnline: boolean
   lastSeen: Date
+  blockedUsers: string[]
   createdAt: Date
 }
 
@@ -38,8 +39,15 @@ export const toSafeUser = (u: IUser): SafeUser => ({
   isVerified: u.isVerified,
   isOnline: u.isOnline,
   lastSeen: u.lastSeen,
+  blockedUsers: (u.blockedUsers ?? []).map((id) => id.toString()),
   createdAt: u.createdAt,
 })
+
+/** Like toSafeUser but omits blockedUsers — who someone else has blocked is private. */
+export const toPublicUser = (u: IUser): Omit<SafeUser, 'blockedUsers'> => {
+  const { blockedUsers: _blockedUsers, ...rest } = toSafeUser(u)
+  return rest
+}
 
 export const registerUser = async (input: {
   name: string

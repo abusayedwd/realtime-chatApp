@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { Message } from '../../models/Message.model'
 import { Conversation } from '../../models/Conversation.model'
 import { logger } from '../../utils/logger'
+import { isBlockedEitherWay } from '../../services/block.service'
 import type { ChatSocket } from '../socket'
 
 interface SendMessageBody {
@@ -87,8 +88,15 @@ export const registerMessageHandlers = (io: Server, socket: ChatSocket) => {
       const convo = await Conversation.findOne({
         _id: conversationId,
         participants: new mongoose.Types.ObjectId(userId),
-      }).select('_id participants')
+      }).select('_id participants isGroup')
       if (!convo) throw new Error('Not a participant')
+
+      if (!convo.isGroup) {
+        const other = (convo.participants ?? []).find((p) => p.toString() !== userId)
+        if (other && (await isBlockedEitherWay(userId, other.toString()))) {
+          throw new Error('Cannot message this user')
+        }
+      }
 
       if (replyTo) {
         const base = await Message.findOne({ _id: replyTo, conversationId }).select('_id')

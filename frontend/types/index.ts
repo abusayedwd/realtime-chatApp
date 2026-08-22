@@ -6,7 +6,15 @@ export interface IUser {
   isVerified: boolean
   isOnline: boolean
   lastSeen: string
+  blockedUsers: string[]
   createdAt: string
+}
+
+export interface IBlockedUser {
+  _id: string
+  name: string
+  email: string
+  avatar?: string
 }
 
 export type MessageType = 'text' | 'image' | 'video' | 'file'

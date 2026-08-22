@@ -10,10 +10,12 @@ import { OnlineStatus } from './OnlineStatus'
 import { ConversationBgPicker } from './ConversationBgPicker'
 import { MessageSkeleton } from '@/components/ui/Skeleton'
 import { useInfiniteMessages } from '@/hooks/useInfiniteMessages'
-import { useGetConversationQuery } from '@/store/api/conversationApi'
+import { useGetConversationQuery, useDeleteConversationMutation } from '@/store/api/conversationApi'
 import { useMarkAsReadMutation } from '@/store/api/messageApi'
+import { useBlockUserMutation, useUnblockUserMutation } from '@/store/api/userApi'
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch'
 import { setActiveConversation } from '@/store/slices/chatSlice'
+import { updateUser } from '@/store/slices/authSlice'
 import { getSocket } from '@/lib/socket'
 import { cn, getSenderId } from '@/lib/utils'
 import { useChatBg } from '@/hooks/useChatBg'
@@ -32,14 +34,20 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
   const me = useAppSelector((s) => s.auth.user)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const [showBgPicker, setShowBgPicker] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [replyingTo, setReplyingTo] = useState<IMessage | null>(null)
   const { bg, setPreset, setCustom, reset, bgStyle } = useChatBg(conversationId)
   const { data: conversation } = useGetConversationQuery(conversationId)
   const { messages, hasMore, loadMore, isFetching } = useInfiniteMessages(conversationId)
   const [markAsRead] = useMarkAsReadMutation()
+  const [blockUser] = useBlockUserMutation()
+  const [unblockUser] = useUnblockUserMutation()
+  const [deleteConversation] = useDeleteConversationMutation()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const lastAutoscrollCount = useRef(0)
   const initialScrollDone = useRef(false)
 
@@ -157,8 +165,22 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
     setReplyingTo(null)
   }, [conversationId])
 
+  // Close the header options menu on outside click
+  useEffect(() => {
+    if (!showMenu) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+        setConfirmDelete(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showMenu])
+
   const isOneToOne = Boolean(!conversation?.isGroup && other?._id)
   const isCallLive = callState === 'connected' || callState === 'connecting' || callState === 'calling'
+  const isBlockedByMe = Boolean(other?._id && me?.blockedUsers?.includes(other._id))
 
   const handleStartCall = async (kind: 'audio' | 'video') => {
     if (!other?._id) return
@@ -166,6 +188,31 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
       await startCall({ toUserId: other._id, conversationId, callType: kind })
     } catch (err) {
       dispatch(pushToast(toast.error((err as Error).message)))
+    }
+  }
+
+  const handleToggleBlock = async () => {
+    if (!other?._id) return
+    try {
+      const updated = isBlockedByMe
+        ? await unblockUser(other._id).unwrap()
+        : await blockUser(other._id).unwrap()
+      dispatch(updateUser({ blockedUsers: updated.blockedUsers }))
+      dispatch(pushToast(toast.success(isBlockedByMe ? 'User unblocked' : 'User blocked')))
+      setShowMenu(false)
+    } catch (err) {
+      dispatch(pushToast(toast.error((err as { message?: string }).message ?? 'Action failed')))
+    }
+  }
+
+  const handleDeleteChat = async () => {
+    try {
+      await deleteConversation(conversationId).unwrap()
+      setShowMenu(false)
+      setConfirmDelete(false)
+      router.push('/')
+    } catch (err) {
+      dispatch(pushToast(toast.error((err as { message?: string }).message ?? 'Delete failed')))
     }
   }
 
@@ -270,6 +317,63 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
           onSelectCustom={setCustom}
           onReset={reset}
         />
+
+        {/* More options — block/unblock, delete chat */}
+        <div ref={menuRef} className="relative">
+          <button
+            onClick={() => setShowMenu((v) => !v)}
+            title="More options"
+            className={cn(
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] transition active:scale-95',
+              showMenu ? 'bg-white/10 text-brand-light' : 'text-ink-muted hover:bg-white/10 hover:text-ink'
+            )}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="5" r="1.6" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+              <circle cx="12" cy="19" r="1.6" fill="currentColor" />
+            </svg>
+          </button>
+
+          {showMenu && (
+            <div className="absolute right-0 top-10 z-30 min-w-[190px] overflow-hidden rounded-xl border border-white/10 bg-bg-panel/95 p-1 shadow-xl backdrop-blur">
+              {isOneToOne && (
+                <button
+                  onClick={() => void handleToggleBlock()}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-ink transition hover:bg-white/10"
+                >
+                  {isBlockedByMe ? 'Unblock user' : 'Block user'}
+                </button>
+              )}
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-rose-300 transition hover:bg-white/10"
+                >
+                  Delete chat
+                </button>
+              ) : (
+                <div className="px-3 py-2">
+                  <p className="mb-2 text-[11px] text-ink-dim">Delete this chat for you?</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => void handleDeleteChat()}
+                      className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-rose-500"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-ink transition hover:bg-white/20"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
       {/* ── Messages ── */}
@@ -310,12 +414,24 @@ export const ChatWindow = ({ conversationId }: ChatWindowProps) => {
       </div>
 
       <TypingIndicator conversationId={conversationId} />
-      <MessageInput
-        conversationId={conversationId}
-        socket={socket}
-        replyTo={replyingTo}
-        onCancelReply={() => setReplyingTo(null)}
-      />
+      {isBlockedByMe ? (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-bg-panel px-4 py-3">
+          <p className="text-xs text-ink-dim">You've blocked {other?.name ?? 'this user'} — unblock to send messages.</p>
+          <button
+            onClick={() => void handleToggleBlock()}
+            className="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-white/20"
+          >
+            Unblock
+          </button>
+        </div>
+      ) : (
+        <MessageInput
+          conversationId={conversationId}
+          socket={socket}
+          replyTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+        />
+      )}
     </section>
   )
 }

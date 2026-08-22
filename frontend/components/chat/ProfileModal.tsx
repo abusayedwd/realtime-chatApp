@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch'
-import { setCredentials } from '@/store/slices/authSlice'
+import { setCredentials, updateUser } from '@/store/slices/authSlice'
 import { pushToast, toast } from '@/store/slices/uiSlice'
-import { useUpdateMeMutation } from '@/store/api/userApi'
+import { useUpdateMeMutation, useGetBlockedUsersQuery, useUnblockUserMutation } from '@/store/api/userApi'
 import { uploadAvatar } from '@/store/api/userApi'
 import { useChangePasswordMutation } from '@/store/api/authApi'
 import { updateProfileSchema, changePasswordSchema, UpdateProfileValues, ChangePasswordValues } from '@/validations/authSchema'
@@ -21,7 +21,7 @@ interface Props {
   onClose: () => void
 }
 
-type Tab = 'profile' | 'password'
+type Tab = 'profile' | 'password' | 'blocked'
 
 export const ProfileModal = ({ open, onClose }: Props) => {
   const [tab, setTab] = useState<Tab>('profile')
@@ -31,6 +31,20 @@ export const ProfileModal = ({ open, onClose }: Props) => {
 
   const [updateMe, { isLoading: isSaving }] = useUpdateMeMutation()
   const [changePassword, { isLoading: isChanging }] = useChangePasswordMutation()
+  const { data: blockedUsers, isLoading: isLoadingBlocked } = useGetBlockedUsersQuery(undefined, {
+    skip: !open,
+  })
+  const [unblockUser] = useUnblockUserMutation()
+
+  const onUnblock = async (userId: string) => {
+    try {
+      const updated = await unblockUser(userId).unwrap()
+      dispatch(updateUser({ blockedUsers: updated.blockedUsers }))
+      dispatch(pushToast(toast.success('User unblocked')))
+    } catch (err) {
+      dispatch(pushToast(toast.error((err as { message?: string }).message ?? 'Unblock failed')))
+    }
+  }
 
   // ── Avatar ──────────────────────────────────────────────────────────────────
   const fileRef = useRef<HTMLInputElement>(null)
@@ -97,7 +111,7 @@ export const ProfileModal = ({ open, onClose }: Props) => {
     <Modal open={open} onClose={onClose} title="Profile & Settings">
       {/* Tab bar */}
       <div className="mb-5 flex gap-1 rounded-xl bg-bg-hover p-1">
-        {(['profile', 'password'] as Tab[]).map((t) => (
+        {(['profile', 'password', 'blocked'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -107,7 +121,7 @@ export const ProfileModal = ({ open, onClose }: Props) => {
                 : 'text-ink-muted hover:text-ink'
             }`}
           >
-            {t === 'profile' ? 'Profile' : 'Password'}
+            {t === 'profile' ? 'Profile' : t === 'password' ? 'Password' : 'Blocked'}
           </button>
         ))}
       </div>
@@ -201,6 +215,36 @@ export const ProfileModal = ({ open, onClose }: Props) => {
             Change password
           </Button>
         </form>
+      )}
+
+      {/* ── Blocked users tab ── */}
+      {tab === 'blocked' && (
+        <div className="flex flex-col gap-2">
+          {isLoadingBlocked ? (
+            <p className="py-6 text-center text-sm text-ink-dim">Loading…</p>
+          ) : !blockedUsers || blockedUsers.length === 0 ? (
+            <p className="py-6 text-center text-sm text-ink-dim">You haven't blocked anyone</p>
+          ) : (
+            blockedUsers.map((u) => (
+              <div
+                key={u._id}
+                className="flex items-center gap-3 rounded-xl border border-line bg-bg-hover px-3 py-2.5"
+              >
+                <Avatar src={u.avatar} name={u.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{u.name}</p>
+                  <p className="truncate text-xs text-ink-dim">{u.email}</p>
+                </div>
+                <button
+                  onClick={() => void onUnblock(u._id)}
+                  className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink-muted transition hover:border-brand/50 hover:text-ink"
+                >
+                  Unblock
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       )}
     </Modal>
   )

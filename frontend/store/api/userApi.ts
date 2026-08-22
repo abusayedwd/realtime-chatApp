@@ -1,5 +1,5 @@
 import { baseApi } from './baseApi'
-import type { IUser } from '@/types'
+import type { IUser, IBlockedUser } from '@/types'
 import { axiosInstance } from '@/lib/axiosBaseQuery'
 
 export const userApi = baseApi.injectEndpoints({
@@ -19,11 +19,30 @@ export const userApi = baseApi.injectEndpoints({
         params: { q, limit },
       }),
     }),
+    getBlockedUsers: build.query<IBlockedUser[], void>({
+      query: () => ({ url: '/users/blocked', method: 'GET' }),
+      providesTags: ['BlockedUsers'],
+    }),
+    blockUser: build.mutation<IUser, string>({
+      query: (userId) => ({ url: `/users/${userId}/block`, method: 'POST' }),
+      invalidatesTags: ['User', 'BlockedUsers'],
+    }),
+    unblockUser: build.mutation<IUser, string>({
+      query: (userId) => ({ url: `/users/${userId}/unblock`, method: 'POST' }),
+      invalidatesTags: ['User', 'BlockedUsers'],
+    }),
   }),
 })
 
-export const { useGetMeQuery, useUpdateMeMutation, useSearchUsersQuery, useLazySearchUsersQuery } =
-  userApi
+export const {
+  useGetMeQuery,
+  useUpdateMeMutation,
+  useSearchUsersQuery,
+  useLazySearchUsersQuery,
+  useGetBlockedUsersQuery,
+  useBlockUserMutation,
+  useUnblockUserMutation,
+} = userApi
 
 /** Upload avatar — returns updated IUser */
 export const uploadAvatar = async (
